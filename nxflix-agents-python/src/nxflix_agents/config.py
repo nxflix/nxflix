@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     opik_api_key: str = ""
     opik_project_name: str = "nxflix-jlpt-n1"
 
+    # TTS settings
+    tts_provider: Literal["google", "openai", "elevenlabs"] = "openai"
+    elevenlabs_api_key: str = ""
+
     def get_model_string(self, provider: str | None = None, model: str | None = None) -> str:
         """Get the LiteLLM model string for a given provider and model."""
         provider = provider or self.default_provider
@@ -61,3 +65,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
+
+
+# Convenience singleton
+settings = get_settings()

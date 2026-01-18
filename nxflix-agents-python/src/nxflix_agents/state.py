@@ -3,12 +3,23 @@ Shared in-memory state for the application.
 In production, this would be replaced with database persistence.
 """
 
-from nxflix_agents.models import UserProgress, GrammarPoint, GrammarCategory
+from nxflix_agents.models import UserProgress, GrammarPoint, GrammarCategory, ContentType
 from nxflix_agents.services import GrammarService, SM2Service
 
 # Shared user progress storage
-# Structure: user_id -> grammar_id -> UserProgress
+# Structure: user_id -> f"{content_type}:{item_id}" -> UserProgress
 user_progress: dict[str, dict[str, UserProgress]] = {}
+
+
+def make_progress_key(content_type: ContentType, item_id: str) -> str:
+    """Create a composite key for progress storage."""
+    return f"{content_type.value}:{item_id}"
+
+
+def parse_progress_key(key: str) -> tuple[ContentType, str]:
+    """Parse a composite key back to content_type and item_id."""
+    content_type_str, *rest = key.split(":")
+    return ContentType(content_type_str), ":".join(rest)
 
 # Singleton services shared across all routers
 grammar_service = GrammarService()
@@ -132,12 +143,30 @@ _initialize_grammar_data()
 
 
 def get_user_progress_list(user_id: str) -> list[UserProgress]:
-    """Get user progress as a list for all grammar points."""
+    """Get user progress as a list for all items."""
     return list(user_progress.get(user_id, {}).values())
 
 
-def update_user_progress(user_id: str, grammar_id: str, progress: UserProgress) -> None:
-    """Update user progress for a specific grammar point."""
+def get_user_progress_by_type(user_id: str, content_type: ContentType) -> list[UserProgress]:
+    """Get user progress filtered by content type."""
+    all_progress = user_progress.get(user_id, {})
+    prefix = f"{content_type.value}:"
+    return [p for key, p in all_progress.items() if key.startswith(prefix)]
+
+
+def update_user_progress(
+    user_id: str, item_id: str, content_type: ContentType, progress: UserProgress
+) -> None:
+    """Update user progress for a specific item."""
     if user_id not in user_progress:
         user_progress[user_id] = {}
-    user_progress[user_id][grammar_id] = progress
+    key = make_progress_key(content_type, item_id)
+    user_progress[user_id][key] = progress
+
+
+def get_user_progress(
+    user_id: str, item_id: str, content_type: ContentType
+) -> UserProgress | None:
+    """Get single user progress item."""
+    key = make_progress_key(content_type, item_id)
+    return user_progress.get(user_id, {}).get(key)

@@ -2,5 +2,6 @@
 
 from .study_orchestrator import StudyOrchestratorAgent
 from .knowledge_assessor import KnowledgeAssessorAgent
+from .content_creator import ContentCreatorAgent
 
-__all__ = ["StudyOrchestratorAgent", "KnowledgeAssessorAgent"]
+__all__ = ["StudyOrchestratorAgent", "KnowledgeAssessorAgent", "ContentCreatorAgent"]

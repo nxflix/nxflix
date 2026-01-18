@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ContentType } from './content-type.js';
 
 export const SM2Data = z.object({
   easeFactor: z.number().min(1.3).default(2.5),
@@ -11,7 +12,8 @@ export type SM2Data = z.infer<typeof SM2Data>;
 
 export const UserProgress = z.object({
   userId: z.string(),
-  grammarId: z.string(),
+  itemId: z.string(),
+  contentType: ContentType.default('grammar'),
   sm2Data: SM2Data.default({}),
   timesStudied: z.number().int().default(0),
   timesCorrect: z.number().int().default(0),
@@ -23,7 +25,8 @@ export const UserProgress = z.object({
 export type UserProgress = z.infer<typeof UserProgress>;
 
 export const SessionResult = z.object({
-  grammarId: z.string(),
+  itemId: z.string(),
+  contentType: ContentType.default('grammar'),
   questionsAsked: z.number().int(),
   correctAnswers: z.number().int(),
   score: z.number().min(0).max(5),
@@ -33,7 +36,8 @@ export type SessionResult = z.infer<typeof SessionResult>;
 export const StudySession = z.object({
   id: z.string(),
   userId: z.string(),
-  grammarIds: z.array(z.string()),
+  itemIds: z.array(z.string()),
+  contentTypes: z.array(ContentType).default([]),
   startedAt: z.string().datetime().optional(),
   completedAt: z.string().datetime().nullish(),
   results: z.array(SessionResult).default([]),

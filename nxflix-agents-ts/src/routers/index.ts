@@ -2,3 +2,8 @@ export { studyRouter } from './study.js';
 export { quizRouter } from './quiz.js';
 export { progressRouter } from './progress.js';
 export { healthRouter } from './health.js';
+export { kanjiRouter } from './kanji.js';
+export { vocabularyRouter } from './vocabulary.js';
+export { listeningRouter } from './listening.js';
+export { readingRouter } from './reading.js';
+export { ttsRouter } from './tts.js';

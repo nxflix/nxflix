@@ -5,12 +5,28 @@
 
 import type { UserProgress } from './models/progress.js';
 import type { GrammarPoint, GrammarCategory } from './models/grammar.js';
+import type { ContentType } from './models/content-type.js';
 import { GrammarService } from './services/grammar.js';
 import { SM2Service } from './services/spaced-repetition.js';
 
 // Shared user progress storage
-// Structure: userId -> grammarId -> UserProgress
+// Structure: userId -> `${contentType}:${itemId}` -> UserProgress
 export const userProgress: Record<string, Record<string, UserProgress>> = {};
+
+/**
+ * Create a composite key for progress storage.
+ */
+export function makeProgressKey(contentType: ContentType, itemId: string): string {
+  return `${contentType}:${itemId}`;
+}
+
+/**
+ * Parse a composite key back to contentType and itemId.
+ */
+export function parseProgressKey(key: string): { contentType: ContentType; itemId: string } {
+  const [contentType, ...rest] = key.split(':');
+  return { contentType: contentType as ContentType, itemId: rest.join(':') };
+}
 
 // Singleton services shared across all routers
 export const grammarService = new GrammarService();
@@ -146,10 +162,30 @@ export function getUserProgressList(userId: string): UserProgress[] {
   return Object.values(userProgress[userId] ?? {});
 }
 
+// Helper to get user progress filtered by content type
+export function getUserProgressByType(userId: string, contentType: ContentType): UserProgress[] {
+  const allProgress = userProgress[userId] ?? {};
+  return Object.entries(allProgress)
+    .filter(([key]) => key.startsWith(`${contentType}:`))
+    .map(([, progress]) => progress);
+}
+
 // Helper to update user progress
-export function updateUserProgress(userId: string, grammarId: string, progress: UserProgress): void {
+export function updateUserProgress(
+  userId: string,
+  itemId: string,
+  contentType: ContentType,
+  progress: UserProgress
+): void {
   if (!userProgress[userId]) {
     userProgress[userId] = {};
   }
-  userProgress[userId][grammarId] = progress;
+  const key = makeProgressKey(contentType, itemId);
+  userProgress[userId][key] = progress;
+}
+
+// Helper to get single user progress item
+export function getUserProgress(userId: string, itemId: string, contentType: ContentType): UserProgress | undefined {
+  const key = makeProgressKey(contentType, itemId);
+  return userProgress[userId]?.[key];
 }

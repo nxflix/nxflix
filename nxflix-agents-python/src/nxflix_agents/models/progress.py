@@ -3,6 +3,8 @@
 from datetime import datetime
 from pydantic import BaseModel, Field
 
+from .content_type import ContentType
+
 
 class SM2Data(BaseModel):
     """SM-2 spaced repetition algorithm data."""
@@ -15,10 +17,11 @@ class SM2Data(BaseModel):
 
 
 class UserProgress(BaseModel):
-    """User's progress on a specific grammar point."""
+    """User's progress on a specific study item."""
 
     user_id: str
-    grammar_id: str
+    item_id: str
+    content_type: ContentType = ContentType.GRAMMAR
     sm2_data: SM2Data = Field(default_factory=SM2Data)
     times_studied: int = 0
     times_correct: int = 0
@@ -36,9 +39,10 @@ class UserProgress(BaseModel):
 
 
 class SessionResult(BaseModel):
-    """Result of a single grammar point within a study session."""
+    """Result of a single item within a study session."""
 
-    grammar_id: str
+    item_id: str
+    content_type: ContentType = ContentType.GRAMMAR
     questions_asked: int
     correct_answers: int
     score: float  # 0-5 quality score for SM-2
@@ -49,7 +53,8 @@ class StudySession(BaseModel):
 
     id: str
     user_id: str
-    grammar_ids: list[str]
+    item_ids: list[str]
+    content_types: list[ContentType] = []
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
     results: list[SessionResult] = []

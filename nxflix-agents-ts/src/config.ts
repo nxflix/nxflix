@@ -16,6 +16,9 @@ export interface Settings {
   opikEnabled: boolean;
   opikApiKey: string;
   opikProjectName: string;
+  // TTS settings
+  ttsProvider: 'google' | 'openai' | 'elevenlabs';
+  elevenLabsApiKey: string;
 }
 
 function getEnv(key: string, defaultValue: string = ''): string {
@@ -49,6 +52,9 @@ export const settings: Settings = {
   opikEnabled: getEnvBool('OPIK_ENABLED', true),
   opikApiKey: getEnv('OPIK_API_KEY'),
   opikProjectName: getEnv('OPIK_PROJECT_NAME', 'nxflix-jlpt-n1'),
+  // TTS settings
+  ttsProvider: (getEnv('TTS_PROVIDER', 'openai') as Settings['ttsProvider']),
+  elevenLabsApiKey: getEnv('ELEVENLABS_API_KEY'),
 };
 
 export function getModelId(provider?: string, model?: string): string {
