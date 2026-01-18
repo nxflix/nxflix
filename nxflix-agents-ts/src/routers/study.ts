@@ -1,18 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { StudyOrchestratorAgent } from '../agents/study-orchestrator.js';
-import { GrammarService } from '../services/grammar.js';
-import { SM2Service } from '../services/spaced-repetition.js';
-import type { UserProgress, SessionResult } from '../models/progress.js';
+import type { SessionResult, UserProgress } from '../models/progress.js';
+import { userProgress, grammarService, sm2Service, getUserProgressList } from '../state.js';
 
 const studyRouter = Router();
 
-// In-memory storage for demo
-const userProgress: Record<string, Record<string, UserProgress>> = {};
-
-// Singleton services
-const grammarService = new GrammarService();
-const sm2Service = new SM2Service();
+// Use shared services from state
 const studyAgent = new StudyOrchestratorAgent(grammarService, sm2Service);
 
 // Request schemas
@@ -43,16 +37,11 @@ const SessionCompleteRequestSchema = z.object({
   })),
 });
 
-// Get user progress helper
-function getUserProgress(userId: string): UserProgress[] {
-  return Object.values(userProgress[userId] ?? {});
-}
-
 // POST /api/study/recommendations
 studyRouter.post('/recommendations', async (req: Request, res: Response) => {
   try {
     const request = RecommendationRequestSchema.parse(req.body);
-    const progress = getUserProgress(request.userId);
+    const progress = getUserProgressList(request.userId);
 
     const recommendation = await studyAgent.getRecommendations(request, progress);
 
@@ -77,7 +66,7 @@ studyRouter.post('/sessions', async (req: Request, res: Response) => {
 });
 
 // PUT /api/study/sessions/:id/complete
-studyRouter.put('/sessions/:id/complete', async (req: Request, res: Response) => {
+studyRouter.put('/sessions/:id/complete', async (req: Request<{ id: string }>, res: Response) => {
   try {
     const sessionId = req.params.id;
     const { results } = SessionCompleteRequestSchema.parse({
@@ -87,11 +76,12 @@ studyRouter.put('/sessions/:id/complete', async (req: Request, res: Response) =>
 
     const session = studyAgent.getSession(sessionId);
     if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
+      res.status(404).json({ error: 'Session not found' });
+      return;
     }
 
     const userId = session.userId;
-    const userProgressDict = userProgress[userId] ?? {};
+    const userProgressDict: Record<string, UserProgress> = userProgress[userId] ?? {};
 
     // Create progress entries for new grammar points
     for (const result of results) {
@@ -138,10 +128,11 @@ studyRouter.put('/sessions/:id/complete', async (req: Request, res: Response) =>
 });
 
 // GET /api/study/sessions/:id
-studyRouter.get('/sessions/:id', (req: Request, res: Response) => {
+studyRouter.get('/sessions/:id', (req: Request<{ id: string }>, res: Response) => {
   const session = studyAgent.getSession(req.params.id);
   if (!session) {
-    return res.status(404).json({ error: 'Session not found' });
+    res.status(404).json({ error: 'Session not found' });
+    return;
   }
   res.json({ session });
 });

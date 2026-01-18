@@ -1,18 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { SM2Service } from '../services/spaced-repetition.js';
+import { userProgress, sm2Service } from '../state.js';
 import type { UserProgress } from '../models/progress.js';
 
 const progressRouter = Router();
 
-// In-memory storage (shared with study router in real app)
-const userProgress: Record<string, Record<string, UserProgress>> = {};
-const sm2Service = new SM2Service();
-
 // GET /api/progress/:userId/stats
-progressRouter.get('/:userId/stats', (req: Request, res: Response) => {
+progressRouter.get('/:userId/stats', (req: Request<{ userId: string }>, res: Response) => {
   const userId = req.params.userId;
   const progressDict = userProgress[userId] ?? {};
-  const progressList = Object.values(progressDict);
+  const progressList = Object.values(progressDict) as UserProgress[];
 
   const total = progressList.length;
   const studied = progressList.filter(p => p.timesStudied > 0).length;
@@ -33,12 +29,12 @@ progressRouter.get('/:userId/stats', (req: Request, res: Response) => {
 });
 
 // GET /api/progress/:userId/due
-progressRouter.get('/:userId/due', (req: Request, res: Response) => {
+progressRouter.get('/:userId/due', (req: Request<{ userId: string }>, res: Response) => {
   const userId = req.params.userId;
   const limit = parseInt(req.query.limit as string) || 20;
 
   const progressDict = userProgress[userId] ?? {};
-  const progressList = Object.values(progressDict);
+  const progressList = Object.values(progressDict) as UserProgress[];
 
   const dueItems = sm2Service.getDueItems(progressList, limit);
 
@@ -49,14 +45,14 @@ progressRouter.get('/:userId/due', (req: Request, res: Response) => {
 });
 
 // GET /api/progress/:userId/grammar/:grammarId
-progressRouter.get('/:userId/grammar/:grammarId', (req: Request, res: Response) => {
+progressRouter.get('/:userId/grammar/:grammarId', (req: Request<{ userId: string; grammarId: string }>, res: Response) => {
   const { userId, grammarId } = req.params;
   const progressDict = userProgress[userId] ?? {};
   const progress = progressDict[grammarId];
 
   if (!progress) {
     // Return empty progress for new grammar
-    return res.json({
+    res.json({
       userId,
       grammarId,
       sm2Data: { easeFactor: 2.5, interval: 0, repetitions: 0 },
@@ -65,6 +61,7 @@ progressRouter.get('/:userId/grammar/:grammarId', (req: Request, res: Response) 
       lastScore: null,
       masteryLevel: 0,
     });
+    return;
   }
 
   res.json(progress);

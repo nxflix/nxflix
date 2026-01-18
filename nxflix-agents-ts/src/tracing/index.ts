@@ -1,18 +1,10 @@
 import { settings } from '../config.js';
 
-interface TraceContext {
-  traceId: string;
-  name: string;
-  input: Record<string, unknown>;
-  startTime: number;
-}
-
 interface OpikClient {
   trace(params: { name: string; input: Record<string, unknown> }): TraceHandle;
 }
 
 interface TraceHandle {
-  id: string;
   update(params: { output?: unknown; metadata?: Record<string, unknown> }): void;
   end(): void;
 }

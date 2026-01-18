@@ -11,13 +11,12 @@ from nxflix_agents.models import (
     GradedAnswer,
 )
 from nxflix_agents.agents import KnowledgeAssessorAgent
-from nxflix_agents.services import GrammarService
+from nxflix_agents.state import grammar_service
 
 router = APIRouter(prefix="/api/quiz", tags=["quiz"])
 
-# Singleton services
-_grammar_service = GrammarService()
-_quiz_agent = KnowledgeAssessorAgent(_grammar_service)
+# Use shared grammar service from state
+_quiz_agent = KnowledgeAssessorAgent(grammar_service)
 
 
 def get_quiz_agent() -> KnowledgeAssessorAgent:

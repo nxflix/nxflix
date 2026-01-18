@@ -4,13 +4,12 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from nxflix_agents.models import UserProgress
-from nxflix_agents.services import SM2Service
+from nxflix_agents.state import (
+    user_progress as _user_progress,
+    sm2_service as _sm2_service,
+)
 
 router = APIRouter(prefix="/api/progress", tags=["progress"])
-
-# In-memory storage (shared with study router in real app)
-_user_progress: dict[str, dict[str, UserProgress]] = {}
-_sm2_service = SM2Service()
 
 
 class StatsResponse(BaseModel):

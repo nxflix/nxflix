@@ -13,27 +13,22 @@ from nxflix_agents.models import (
     UserProgress,
 )
 from nxflix_agents.agents import StudyOrchestratorAgent
-from nxflix_agents.services import GrammarService, SM2Service
+from nxflix_agents.state import (
+    user_progress as _user_progress,
+    grammar_service,
+    sm2_service,
+    get_user_progress_list,
+)
 
 router = APIRouter(prefix="/api/study", tags=["study"])
 
-# In-memory storage for demo (replace with database)
-_user_progress: dict[str, dict[str, UserProgress]] = {}
-
-# Singleton services (would be injected in production)
-_grammar_service = GrammarService()
-_sm2_service = SM2Service()
-_study_agent = StudyOrchestratorAgent(_grammar_service, _sm2_service)
+# Use shared services from state
+_study_agent = StudyOrchestratorAgent(grammar_service, sm2_service)
 
 
 def get_study_agent() -> StudyOrchestratorAgent:
     """Dependency to get the study orchestrator agent."""
     return _study_agent
-
-
-def get_user_progress(user_id: str) -> list[UserProgress]:
-    """Get user progress for all grammar points."""
-    return list(_user_progress.get(user_id, {}).values())
 
 
 class RecommendationsResponse(BaseModel):
@@ -61,7 +56,7 @@ async def get_recommendations(
     agent: StudyOrchestratorAgent = Depends(get_study_agent),
 ):
     """Get personalized study recommendations."""
-    user_progress = get_user_progress(request.user_id)
+    user_progress = get_user_progress_list(request.user_id)
 
     recommendation = await agent.get_recommendations(request, user_progress)
 

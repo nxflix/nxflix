@@ -3,7 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOllama } from 'ollama-ai-provider';
-import { z, ZodType } from 'zod';
+import type { ZodType } from 'zod';
 import { settings } from '../config.js';
 import { createTrace } from '../tracing/index.js';
 

@@ -1,13 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { KnowledgeAssessorAgent } from '../agents/knowledge-assessor.js';
-import { GrammarService } from '../services/grammar.js';
+import { grammarService } from '../state.js';
 import type { QuestionType } from '../models/quiz.js';
 
 const quizRouter = Router();
 
-// Singleton services
-const grammarService = new GrammarService();
+// Use shared grammar service from state
 const quizAgent = new KnowledgeAssessorAgent(grammarService);
 
 // Request schemas
@@ -62,16 +61,17 @@ quizRouter.post('/generate', async (req: Request, res: Response) => {
 });
 
 // GET /api/quiz/:id
-quizRouter.get('/:id', (req: Request, res: Response) => {
+quizRouter.get('/:id', (req: Request<{ id: string }>, res: Response) => {
   const quiz = quizAgent.getQuiz(req.params.id);
   if (!quiz) {
-    return res.status(404).json({ error: 'Quiz not found' });
+    res.status(404).json({ error: 'Quiz not found' });
+    return;
   }
   res.json({ quiz });
 });
 
 // POST /api/quiz/:id/answer/:questionId
-quizRouter.post('/:id/answer/:questionId', async (req: Request, res: Response) => {
+quizRouter.post('/:id/answer/:questionId', async (req: Request<{ id: string; questionId: string }>, res: Response) => {
   try {
     const quizId = req.params.id;
     const questionId = req.params.questionId;
@@ -79,12 +79,14 @@ quizRouter.post('/:id/answer/:questionId', async (req: Request, res: Response) =
 
     const quiz = quizAgent.getQuiz(quizId);
     if (!quiz) {
-      return res.status(404).json({ error: 'Quiz not found' });
+      res.status(404).json({ error: 'Quiz not found' });
+      return;
     }
 
     const question = quiz.questions.find(q => q.id === questionId);
     if (!question) {
-      return res.status(404).json({ error: 'Question not found' });
+      res.status(404).json({ error: 'Question not found' });
+      return;
     }
 
     const result = await quizAgent.gradeAnswer(question, userAnswer);
@@ -97,14 +99,15 @@ quizRouter.post('/:id/answer/:questionId', async (req: Request, res: Response) =
 });
 
 // POST /api/quiz/:id/submit
-quizRouter.post('/:id/submit', async (req: Request, res: Response) => {
+quizRouter.post('/:id/submit', async (req: Request<{ id: string }>, res: Response) => {
   try {
     const quizId = req.params.id;
     const { answers } = SubmitAllRequestSchema.parse(req.body);
 
     const quiz = quizAgent.getQuiz(quizId);
     if (!quiz) {
-      return res.status(404).json({ error: 'Quiz not found' });
+      res.status(404).json({ error: 'Quiz not found' });
+      return;
     }
 
     const results = [];
