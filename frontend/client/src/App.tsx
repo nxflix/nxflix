@@ -9,6 +9,7 @@ import Landing from "@/pages/landing";
 import RoleSelection from "@/pages/role-selection";
 import Creator from "@/pages/creator";
 import Watcher from "@/pages/watcher";
+import Discover from "@/pages/discover";
 import StudyDashboard from "@/pages/study-dashboard";
 import {
   GrammarStudy,
@@ -24,6 +25,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/role" component={RoleSelection} />
+      <Route path="/discover" component={Discover} />
       <Route path="/create" component={Creator} />
       <Route path="/watch" component={Watcher} />
       <Route path="/study" component={StudyDashboard} />
