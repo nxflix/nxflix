@@ -2,7 +2,9 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { KanjiService } from '../services/kanji.js';
 import { KanjiItem, KanjiGenerateRequest } from '../models/kanji.js';
-import { llm } from '../providers/llm.js';
+import { LLMProvider } from '../providers/llm.js';
+
+const llm = new LLMProvider();
 
 const kanjiRouter = Router();
 

@@ -1,5 +1,6 @@
 import { createContext, useContext, ReactNode } from 'react';
 import { PrivyProvider, usePrivy, useWallets } from '@privy-io/react-auth';
+import { sepolia, baseSepolia, mainnet, base } from 'viem/chains';
 
 // Get Privy App ID from environment
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || '';
@@ -99,22 +100,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           accentColor: '#7c3aed', // Purple to match the app theme
           logo: undefined, // Add your logo URL here
           showWalletLoginFirst: false,
+          walletList: ['metamask', 'coinbase_wallet', 'rainbow', 'wallet_connect'],
         },
         // Login methods
         loginMethods: [
           'email',
           'google',
           'twitter',
-          'discord',
           'wallet',
         ],
         // Embedded wallets - create wallet for users who login via social
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
         },
-        // Supported chains (optional - for Web3 functionality)
-        // supportedChains: [mainnet, polygon, arbitrum],
-        // defaultChain: mainnet,
+        // Supported chains for wallet connections
+        supportedChains: [sepolia, baseSepolia, mainnet, base],
+        defaultChain: baseSepolia,
       }}
     >
       <AuthContextProvider>

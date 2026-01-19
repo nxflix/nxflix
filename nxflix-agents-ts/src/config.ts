@@ -19,6 +19,17 @@ export interface Settings {
   // TTS settings
   ttsProvider: 'google' | 'openai' | 'elevenlabs';
   elevenLabsApiKey: string;
+  // SideShift settings
+  sideshiftApiUrl: string;
+  sideshiftAffiliateId: string;
+  sideshiftSecret: string;
+  sideshiftWebhookSecret: string;
+  // Subscription contract settings
+  treasuryPrivateKey: string;
+  sepoliaRpcUrl: string;
+  baseSepoliaRpcUrl: string;
+  sepoliaSubscriptionContract: string;
+  baseSepoliaSubscriptionContract: string;
 }
 
 function getEnv(key: string, defaultValue: string = ''): string {
@@ -55,6 +66,17 @@ export const settings: Settings = {
   // TTS settings
   ttsProvider: (getEnv('TTS_PROVIDER', 'openai') as Settings['ttsProvider']),
   elevenLabsApiKey: getEnv('ELEVENLABS_API_KEY'),
+  // SideShift settings
+  sideshiftApiUrl: getEnv('SIDESHIFT_API_URL', 'https://sideshift.ai/api/v2'),
+  sideshiftAffiliateId: getEnv('SIDESHIFT_AFFILIATE_ID', ''),
+  sideshiftSecret: getEnv('SIDESHIFT_SECRET', ''),
+  sideshiftWebhookSecret: getEnv('SIDESHIFT_WEBHOOK_SECRET', ''),
+  // Subscription contract settings
+  treasuryPrivateKey: getEnv('TREASURY_PRIVATE_KEY', ''),
+  sepoliaRpcUrl: getEnv('SEPOLIA_RPC_URL', 'https://ethereum-sepolia-rpc.publicnode.com'),
+  baseSepoliaRpcUrl: getEnv('BASE_SEPOLIA_RPC_URL', 'https://sepolia.base.org'),
+  sepoliaSubscriptionContract: getEnv('SEPOLIA_SUBSCRIPTION_CONTRACT', '0x789A4C17d01551BAF6152F8F842B174ab61ace9A'),
+  baseSepoliaSubscriptionContract: getEnv('BASE_SEPOLIA_SUBSCRIPTION_CONTRACT', '0xDA4EF957c402522Fa0b837cb047dd416ba783798'),
 };
 
 export function getModelId(provider?: string, model?: string): string {

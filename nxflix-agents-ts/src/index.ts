@@ -13,6 +13,7 @@ import {
   listeningRouter,
   readingRouter,
   ttsRouter,
+  sideshiftRouter,
 } from './routers/index.js';
 
 // Initialize tracing
@@ -44,6 +45,7 @@ app.use('/api/vocabulary', vocabularyRouter);
 app.use('/api/listening', listeningRouter);
 app.use('/api/reading', readingRouter);
 app.use('/api/tts', ttsRouter);
+app.use('/api/sideshift', sideshiftRouter);
 
 // Error handling
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

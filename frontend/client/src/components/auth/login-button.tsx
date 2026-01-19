@@ -1,4 +1,5 @@
 import { useAuth } from '@/lib/auth';
+import { useWalletNetwork } from '@/lib/hooks';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -9,10 +10,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2, LogIn, LogOut, User, Wallet, Mail } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, LogIn, LogOut, User, Wallet, Mail, Network } from 'lucide-react';
 
 export function LoginButton() {
   const { isAuthenticated, isLoading, login, logout, userDisplayName, userEmail, userWallet } = useAuth();
+  const { name: networkName, isSupported, chainId } = useWalletNetwork();
 
   if (isLoading) {
     return (
@@ -65,6 +68,17 @@ export function LoginButton() {
                 <Wallet className="w-3 h-3" />
                 {userWallet.slice(0, 6)}...{userWallet.slice(-4)}
               </p>
+            )}
+            {chainId && (
+              <div className="flex items-center gap-1 mt-1">
+                <Network className="w-3 h-3 text-muted-foreground" />
+                <Badge
+                  variant={isSupported ? "default" : "destructive"}
+                  className="text-xs px-1.5 py-0"
+                >
+                  {networkName}
+                </Badge>
+              </div>
             )}
           </div>
         </DropdownMenuLabel>

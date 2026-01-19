@@ -5,5 +5,8 @@ export { VocabularyService } from './vocabulary.js';
 export { ListeningService } from './listening.js';
 export { ReadingService } from './reading.js';
 export { TTSService, TTSProvider, JapaneseVoices } from './tts.js';
+export { SideshiftService, sideshiftService } from './sideshift.js';
+export { SubscriptionService, subscriptionService } from './subscription.js';
 export type { SM2Result } from './spaced-repetition.js';
 export type { TTSSynthesizeResult, DialogueLine as TTSDialogueLine, TTSSynthesizeOptions } from './tts.js';
+export type { Plan, SupportedChainId } from './subscription.js';

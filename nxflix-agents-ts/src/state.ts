@@ -6,6 +6,7 @@
 import type { UserProgress } from './models/progress.js';
 import type { GrammarPoint, GrammarCategory } from './models/grammar.js';
 import type { ContentType } from './models/content-type.js';
+import type { SubscriptionShift, ShiftStatus } from './models/sideshift.js';
 import { GrammarService } from './services/grammar.js';
 import { SM2Service } from './services/spaced-repetition.js';
 
@@ -188,4 +189,80 @@ export function updateUserProgress(
 export function getUserProgress(userId: string, itemId: string, contentType: ContentType): UserProgress | undefined {
   const key = makeProgressKey(contentType, itemId);
   return userProgress[userId]?.[key];
+}
+
+// ============================================
+// Subscription Shifts Storage
+// ============================================
+
+// Shifts storage: shiftId -> SubscriptionShift
+export const subscriptionShifts: Record<string, SubscriptionShift> = {};
+
+// Index: sideshiftOrderId -> shiftId for webhook lookups
+const sideshiftOrderIndex: Record<string, string> = {};
+
+// Index: userAddress -> shiftIds for user queries
+const userShiftsIndex: Record<string, string[]> = {};
+
+/**
+ * Create a new subscription shift record
+ */
+export function createShift(shift: SubscriptionShift): SubscriptionShift {
+  subscriptionShifts[shift.id] = shift;
+  sideshiftOrderIndex[shift.sideshiftOrderId] = shift.id;
+
+  if (!userShiftsIndex[shift.userAddress.toLowerCase()]) {
+    userShiftsIndex[shift.userAddress.toLowerCase()] = [];
+  }
+  userShiftsIndex[shift.userAddress.toLowerCase()].push(shift.id);
+
+  return shift;
+}
+
+/**
+ * Get shift by internal ID
+ */
+export function getShiftById(id: string): SubscriptionShift | undefined {
+  return subscriptionShifts[id];
+}
+
+/**
+ * Get shift by SideShift order ID (for webhook processing)
+ */
+export function getShiftBySideshiftOrderId(orderId: string): SubscriptionShift | undefined {
+  const shiftId = sideshiftOrderIndex[orderId];
+  return shiftId ? subscriptionShifts[shiftId] : undefined;
+}
+
+/**
+ * Update an existing shift
+ */
+export function updateShift(id: string, updates: Partial<SubscriptionShift>): SubscriptionShift | undefined {
+  const shift = subscriptionShifts[id];
+  if (!shift) return undefined;
+
+  const updated = {
+    ...shift,
+    ...updates,
+    updatedAt: new Date(),
+  };
+  subscriptionShifts[id] = updated;
+  return updated;
+}
+
+/**
+ * Get all shifts for a user
+ */
+export function getShiftsByUserAddress(userAddress: string): SubscriptionShift[] {
+  const shiftIds = userShiftsIndex[userAddress.toLowerCase()] ?? [];
+  return shiftIds.map(id => subscriptionShifts[id]).filter(Boolean);
+}
+
+/**
+ * Get pending shifts (waiting for deposit)
+ */
+export function getPendingShifts(): SubscriptionShift[] {
+  return Object.values(subscriptionShifts).filter(
+    s => s.status === 'waiting' || s.status === 'processing'
+  );
 }

@@ -11,6 +11,8 @@ import {
   type Plan,
   type SupportedChainId,
 } from '@/lib/contracts';
+import { useEthPrice, ethToUsd, formatUsd } from '@/lib/hooks';
+import { PayWithCryptoDialog } from '@/components/sideshift';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -33,6 +35,7 @@ import {
   RefreshCw,
   ExternalLink,
   Network,
+  Coins,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +43,7 @@ export default function SubscriptionPage() {
   const { isAuthenticated, userWallet, login } = useAuth();
   const { toast } = useToast();
   const { chainId, setChainId, chainInfo } = useChainSelector();
+  const { ethPrice } = useEthPrice();
 
   const { plans, loading: plansLoading } = useSubscriptionPlans(chainId);
   const { subscription, loading: subLoading, refetch } = useUserSubscription(userWallet || undefined, chainId);
@@ -48,6 +52,7 @@ export default function SubscriptionPage() {
   const { toggleAutoRenew, loading: togglingAutoRenew } = useToggleAutoRenew(chainId);
 
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
+  const [cryptoPaymentPlan, setCryptoPaymentPlan] = useState<Plan | null>(null);
 
   const handleSubscribe = async (plan: Plan) => {
     if (!isAuthenticated) {
@@ -273,6 +278,11 @@ export default function SubscriptionPage() {
                         <span className="text-4xl font-bold">{plan.priceFormatted}</span>
                         <span className="text-muted-foreground ml-1">ETH</span>
                       </div>
+                      {ethPrice && (
+                        <p className="text-sm text-primary font-medium mt-1">
+                          ≈ {formatUsd(ethToUsd(plan.priceFormatted, ethPrice))}
+                        </p>
+                      )}
                       <p className="text-sm text-muted-foreground mt-1">
                         {plan.durationDays} days access
                       </p>
@@ -287,23 +297,41 @@ export default function SubscriptionPage() {
                       ))}
                     </ul>
 
-                    <Button
-                      className="w-full"
-                      variant={isCurrentPlan ? 'outline' : isPopular ? 'default' : 'outline'}
-                      onClick={() => handleSubscribe(plan)}
-                      disabled={subscribing || isCurrentPlan}
-                    >
-                      {subscribing && selectedPlan === plan.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : isCurrentPlan ? (
-                        'Current Plan'
-                      ) : (
-                        'Subscribe'
+                    <div className="space-y-2">
+                      <Button
+                        className="w-full"
+                        variant={isCurrentPlan ? 'outline' : isPopular ? 'default' : 'outline'}
+                        onClick={() => handleSubscribe(plan)}
+                        disabled={subscribing || isCurrentPlan}
+                      >
+                        {subscribing && selectedPlan === plan.id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : isCurrentPlan ? (
+                          'Current Plan'
+                        ) : (
+                          'Pay with ETH'
+                        )}
+                      </Button>
+                      {!isCurrentPlan && (
+                        <Button
+                          variant="ghost"
+                          className="w-full gap-2"
+                          onClick={() => {
+                            if (!isAuthenticated) {
+                              login();
+                              return;
+                            }
+                            setCryptoPaymentPlan(plan);
+                          }}
+                        >
+                          <Coins className="w-4 h-4" />
+                          Pay with Crypto
+                        </Button>
                       )}
-                    </Button>
+                    </div>
                   </Card>
                 );
               })
@@ -339,6 +367,22 @@ export default function SubscriptionPage() {
           </p>
         </div>
       </div>
+
+      {/* Pay with Crypto Dialog */}
+      {cryptoPaymentPlan && userWallet && (
+        <PayWithCryptoDialog
+          open={!!cryptoPaymentPlan}
+          onOpenChange={(open) => !open && setCryptoPaymentPlan(null)}
+          plan={cryptoPaymentPlan}
+          chainId={chainId}
+          chainName={chainInfo.name}
+          userAddress={userWallet}
+          onSuccess={() => {
+            refetch();
+            setCryptoPaymentPlan(null);
+          }}
+        />
+      )}
     </div>
   );
 }

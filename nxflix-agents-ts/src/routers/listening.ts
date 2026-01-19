@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { ListeningService } from '../services/listening.js';
 import { TTSService } from '../services/tts.js';
 import { ListeningItem, ListeningGenerateRequest, ListeningType } from '../models/listening.js';
-import { llm } from '../providers/llm.js';
+import { LLMProvider } from '../providers/llm.js';
 
+const llm = new LLMProvider();
 const listeningRouter = Router();
 
 // Singleton services

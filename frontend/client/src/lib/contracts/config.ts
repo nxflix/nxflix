@@ -19,7 +19,7 @@ export const CONTRACT_ADDRESSES: Record<number, { subscription: `0x${string}` }>
 };
 
 // Supported chain IDs
-export const SUPPORTED_CHAINS = [11155111, 84532, 1, 8453] as const;
+export const SUPPORTED_CHAIN_IDS = [11155111, 84532, 1, 8453] as const;
 
 // Default chain for the app
 export const DEFAULT_CHAIN_ID = 11155111; // Sepolia for testing

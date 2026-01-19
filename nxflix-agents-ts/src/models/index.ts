@@ -5,5 +5,6 @@ export * from './listening.js';
 export * from './progress.js';
 export * from './quiz.js';
 export * from './reading.js';
+export * from './sideshift.js';
 export * from './study.js';
 export * from './vocabulary.js';

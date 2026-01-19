@@ -2,8 +2,9 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { ReadingService } from '../services/reading.js';
 import { ReadingPassage, ReadingGenerateRequest, ReadingPassageType } from '../models/reading.js';
-import { llm } from '../providers/llm.js';
+import { LLMProvider } from '../providers/llm.js';
 
+const llm = new LLMProvider();
 const readingRouter = Router();
 
 // Singleton reading service
