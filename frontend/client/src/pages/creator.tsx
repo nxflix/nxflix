@@ -5,6 +5,10 @@ import {
   useGenerateVocabulary,
   useGenerateReading,
   useGenerateListening,
+  useSaveKanji,
+  useSaveVocabulary,
+  useSaveReading,
+  useSaveListening,
 } from '@/lib/api';
 import type {
   ContentType,
@@ -29,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import {
   BookOpen,
   Languages,
@@ -39,6 +44,9 @@ import {
   Sparkles,
   Check,
   AlertCircle,
+  Save,
+  Globe,
+  Lock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -79,6 +87,8 @@ const contentTypeInfo: Record<Exclude<ContentType, 'grammar'>, { icon: typeof Bo
 export default function Creator() {
   const [activeTab, setActiveTab] = useState<Exclude<ContentType, 'grammar'>>('vocabulary');
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [shareContent, setShareContent] = useState(false);
   const { toast } = useToast();
 
   // Form states
@@ -95,11 +105,17 @@ export default function Creator() {
     ttsProvider: 'google', // Default to Google since OpenAI quota exceeded
   });
 
-  // Mutations
+  // Generate mutations
   const generateKanji = useGenerateKanji();
   const generateVocabulary = useGenerateVocabulary();
   const generateReading = useGenerateReading();
   const generateListening = useGenerateListening();
+
+  // Save mutations
+  const saveKanji = useSaveKanji();
+  const saveVocabulary = useSaveVocabulary();
+  const saveReading = useSaveReading();
+  const saveListening = useSaveListening();
 
   const isGenerating =
     generateKanji.isPending ||
@@ -107,7 +123,50 @@ export default function Creator() {
     generateReading.isPending ||
     generateListening.isPending;
 
+  const isSaving =
+    saveKanji.isPending ||
+    saveVocabulary.isPending ||
+    saveReading.isPending ||
+    saveListening.isPending;
+
+  const handleSave = async () => {
+    if (!generatedContent || isSaved) return;
+
+    try {
+      const saveOptions = { isPublic: shareContent };
+      switch (generatedContent.type) {
+        case 'kanji':
+          await saveKanji.mutateAsync({ kanji: generatedContent.data, ...saveOptions });
+          break;
+        case 'vocabulary':
+          await saveVocabulary.mutateAsync({ vocabulary: generatedContent.data, ...saveOptions });
+          break;
+        case 'reading':
+          await saveReading.mutateAsync({ reading: generatedContent.data, ...saveOptions });
+          break;
+        case 'listening':
+          await saveListening.mutateAsync({ listening: generatedContent.data, ...saveOptions });
+          break;
+      }
+      setIsSaved(true);
+      toast({
+        title: 'Saved!',
+        description: shareContent
+          ? `${generatedContent.type.charAt(0).toUpperCase() + generatedContent.type.slice(1)} content saved and shared publicly.`
+          : `${generatedContent.type.charAt(0).toUpperCase() + generatedContent.type.slice(1)} content saved to your library.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Save Failed',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleGenerate = async () => {
+    // Reset saved state when generating new content
+    setIsSaved(false);
     try {
       switch (activeTab) {
         case 'vocabulary':
@@ -378,10 +437,65 @@ export default function Creator() {
 
           {/* Right Panel: Preview */}
           <Card className="p-6 min-h-[500px]">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
-              Preview
-              {generatedContent && <Check className="w-4 h-4 text-green-500" />}
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                Preview
+                {generatedContent && <Check className="w-4 h-4 text-green-500" />}
+              </h3>
+              {generatedContent && (
+                <div className="flex items-center gap-4">
+                  {/* Sharing Toggle */}
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="share-toggle"
+                      checked={shareContent}
+                      onCheckedChange={setShareContent}
+                      disabled={isSaved}
+                    />
+                    <Label
+                      htmlFor="share-toggle"
+                      className="text-sm flex items-center gap-1 cursor-pointer"
+                    >
+                      {shareContent ? (
+                        <>
+                          <Globe className="w-4 h-4 text-green-500" />
+                          Public
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4 text-muted-foreground" />
+                          Private
+                        </>
+                      )}
+                    </Label>
+                  </div>
+                  {/* Save Button */}
+                  <Button
+                    variant={isSaved ? 'outline' : 'default'}
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={isSaving || isSaved}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : isSaved ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Saved
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save to Library
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
 
             <AnimatePresence mode="wait">
               {isGenerating ? (

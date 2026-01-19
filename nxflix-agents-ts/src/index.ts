@@ -3,11 +3,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { settings } from './config.js';
 import { initTracing } from './tracing/index.js';
+import { checkDatabaseConnection, closeDatabaseConnection } from './db/index.js';
 import {
   studyRouter,
   quizRouter,
   progressRouter,
   healthRouter,
+  grammarRouter,
   kanjiRouter,
   vocabularyRouter,
   listeningRouter,
@@ -20,6 +22,12 @@ import {
 
 // Initialize tracing
 await initTracing();
+
+// Check database connection
+const dbConnected = await checkDatabaseConnection();
+if (!dbConnected) {
+  console.warn('Warning: Database connection failed. Some features may not work correctly.');
+}
 
 // Create Express app
 const app = express();
@@ -42,6 +50,7 @@ app.use('/api', healthRouter);
 app.use('/api/study', studyRouter);
 app.use('/api/quiz', quizRouter);
 app.use('/api/progress', progressRouter);
+app.use('/api/grammar', grammarRouter);
 app.use('/api/kanji', kanjiRouter);
 app.use('/api/vocabulary', vocabularyRouter);
 app.use('/api/listening', listeningRouter);
@@ -62,13 +71,15 @@ const server = app.listen(settings.port, settings.host, () => {
   console.log(`Starting NXFlix Agents (TypeScript)`);
   console.log(`  Provider: ${settings.defaultProvider}`);
   console.log(`  Model: ${settings.defaultModel}`);
+  console.log(`  Database: ${dbConnected ? 'connected' : 'disconnected'}`);
   console.log(`  Opik: ${settings.opikEnabled ? 'enabled' : 'disabled'}`);
   console.log(`  Listening on http://${settings.host}:${settings.port}`);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully');
+  await closeDatabaseConnection();
   server.close(() => {
     console.log('Server closed');
     process.exit(0);

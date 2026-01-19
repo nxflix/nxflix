@@ -37,7 +37,7 @@ export const JapaneseVoices = {
 export const TTSSynthesizeOptions = z.object({
   voice: z.string().optional(),
   speed: z.number().min(0.25).max(4.0).default(1.0),
-  pitch: z.number().min(-20).max(20).default(0),
+  pitch: z.number().min(-20).max(20).optional(),
   provider: TTSProvider.optional(),
 });
 export type TTSSynthesizeOptions = z.infer<typeof TTSSynthesizeOptions>;

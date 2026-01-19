@@ -1,14 +1,40 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { ReadingService } from '../services/reading.js';
+import { readingRepository } from '../db/repositories/index.js';
 import { ReadingPassage, ReadingGenerateRequest, ReadingPassageType } from '../models/reading.js';
 import { LLMProvider } from '../providers/llm.js';
+import type { Reading as DbReading } from '../db/schema.js';
+
+type ReadingPassageModel = z.infer<typeof ReadingPassage>;
 
 const llm = new LLMProvider();
 const readingRouter = Router();
 
-// Singleton reading service
-const readingService = new ReadingService();
+// Convert database record to model type
+function dbToModel(db: DbReading): ReadingPassageModel {
+  // Normalize keyVocabulary to always be an array of objects
+  const keyVocabulary = (db.keyVocabulary || []).map(item => {
+    if (typeof item === 'string') {
+      return { word: item, reading: '', meaning: '' };
+    }
+    return item as { word: string; reading: string; meaning: string };
+  });
+
+  return {
+    id: db.id,
+    passageType: db.passageType as ReadingPassageModel['passageType'],
+    title: db.title || undefined,
+    content: db.content,
+    wordCount: db.wordCount,
+    characterCount: db.content.length,
+    questions: db.questions,
+    keyVocabulary,
+    keyGrammar: [],
+    level: db.level,
+    contentType: 'reading',
+    estimatedMinutes: db.estimatedMinutes || 5,
+  };
+}
 
 // Request schemas
 const ReadingSearchSchema = z.object({
@@ -19,25 +45,32 @@ const ReadingGenerateSchema = ReadingGenerateRequest;
 
 // Response types
 interface ReadingListResponse {
-  reading: ReadingPassage[];
+  reading: ReadingPassageModel[];
   count: number;
 }
 
 interface ReadingSingleResponse {
-  reading: ReadingPassage;
+  reading: ReadingPassageModel;
 }
 
 // GET /api/reading - List all reading passages
-readingRouter.get('/', (_req: Request, res: Response) => {
-  const reading = readingService.getAllReadingPassages();
-  res.json({ reading, count: reading.length } as ReadingListResponse);
+readingRouter.get('/', async (_req: Request, res: Response) => {
+  try {
+    const dbResults = await readingRepository.findAll();
+    const reading = dbResults.map(dbToModel);
+    res.json({ reading, count: reading.length } as ReadingListResponse);
+  } catch (error) {
+    console.error('Error fetching reading:', error);
+    res.status(500).json({ error: String(error) });
+  }
 });
 
 // GET /api/reading/search - Search reading passages
-readingRouter.get('/search', (req: Request, res: Response) => {
+readingRouter.get('/search', async (req: Request, res: Response) => {
   try {
     const { query } = ReadingSearchSchema.parse(req.query);
-    const reading = readingService.searchReading(query);
+    const dbResults = await readingRepository.search(query);
+    const reading = dbResults.map(dbToModel);
     res.json({ reading, count: reading.length } as ReadingListResponse);
   } catch (error) {
     console.error('Error searching reading:', error);
@@ -46,10 +79,11 @@ readingRouter.get('/search', (req: Request, res: Response) => {
 });
 
 // GET /api/reading/by-type/:type - Get reading by passage type
-readingRouter.get('/by-type/:type', (req: Request<{ type: string }>, res: Response) => {
+readingRouter.get('/by-type/:type', async (req: Request<{ type: string }>, res: Response) => {
   try {
     const passageType = ReadingPassageType.parse(req.params.type);
-    const reading = readingService.getReadingByType(passageType);
+    const dbResults = await readingRepository.findByPassageType(passageType);
+    const reading = dbResults.map(dbToModel);
     res.json({ reading, count: reading.length } as ReadingListResponse);
   } catch (error) {
     res.status(400).json({ error: 'Invalid passage type' });
@@ -57,29 +91,40 @@ readingRouter.get('/by-type/:type', (req: Request<{ type: string }>, res: Respon
 });
 
 // GET /api/reading/by-topic/:topic - Get reading by topic
-readingRouter.get('/by-topic/:topic', (req: Request<{ topic: string }>, res: Response) => {
-  const reading = readingService.getReadingByTopic(req.params.topic);
-  res.json({ reading, count: reading.length } as ReadingListResponse);
+readingRouter.get('/by-topic/:topic', async (req: Request<{ topic: string }>, res: Response) => {
+  try {
+    const dbResults = await readingRepository.search(req.params.topic);
+    const reading = dbResults.map(dbToModel);
+    res.json({ reading, count: reading.length } as ReadingListResponse);
+  } catch (error) {
+    console.error('Error fetching reading by topic:', error);
+    res.status(500).json({ error: String(error) });
+  }
 });
 
 // GET /api/reading/:id - Get single reading passage by ID
-readingRouter.get('/:id', (req: Request<{ id: string }>, res: Response) => {
-  const reading = readingService.getReadingPassage(req.params.id);
-  if (!reading) {
-    res.status(404).json({ error: 'Reading passage not found' });
-    return;
+readingRouter.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
+  try {
+    const dbResult = await readingRepository.findById(req.params.id);
+    if (!dbResult) {
+      res.status(404).json({ error: 'Reading passage not found' });
+      return;
+    }
+    res.json({ reading: dbToModel(dbResult) } as ReadingSingleResponse);
+  } catch (error) {
+    console.error('Error fetching reading:', error);
+    res.status(500).json({ error: String(error) });
   }
-  res.json({ reading } as ReadingSingleResponse);
 });
 
-// POST /api/reading/generate - AI-generate reading passage
+// POST /api/reading/generate - AI-generate reading passage (does NOT save)
 readingRouter.post('/generate', async (req: Request, res: Response) => {
   try {
     const request = ReadingGenerateSchema.parse(req.body);
 
     const prompt = buildReadingGenerationPrompt(request);
 
-    const generatedReading = await llm.completeJson<{ reading: ReadingPassage }>(
+    const generatedReading = await llm.completeJson<{ reading: ReadingPassageModel }>(
       [{ role: 'user', content: prompt }],
       z.object({
         reading: ReadingPassage,
@@ -87,18 +132,50 @@ readingRouter.post('/generate', async (req: Request, res: Response) => {
     );
 
     // Calculate word and character counts if not provided
-    const reading = {
+    const readingData = {
       ...generatedReading.reading,
       characterCount: generatedReading.reading.content.length,
       wordCount: generatedReading.reading.content.split(/\s+/).length,
     };
 
-    // Add to service
-    readingService.addReadingPassage(reading);
-
-    res.json({ reading } as ReadingSingleResponse);
+    // Return generated content without saving
+    res.json({ reading: readingData } as ReadingSingleResponse);
   } catch (error) {
     console.error('Error generating reading:', error);
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// POST /api/reading/save - Save reading passage to database
+readingRouter.post('/save', async (req: Request, res: Response) => {
+  try {
+    const { reading, isPublic, userId } = req.body as {
+      reading: ReadingPassageModel;
+      isPublic?: boolean;
+      userId?: string;
+    };
+    if (!reading) {
+      res.status(400).json({ error: 'reading object is required' });
+      return;
+    }
+
+    const saved = await readingRepository.upsert({
+      id: reading.id,
+      passageType: reading.passageType,
+      title: reading.title,
+      content: reading.content,
+      wordCount: reading.wordCount,
+      questions: reading.questions,
+      keyVocabulary: reading.keyVocabulary || [],
+      level: reading.level || 'N1',
+      estimatedMinutes: reading.estimatedMinutes || 5,
+      isPublic: isPublic ?? false,
+      createdBy: userId,
+    });
+
+    res.json({ reading: dbToModel(saved), saved: true } as ReadingSingleResponse & { saved: boolean });
+  } catch (error) {
+    console.error('Error saving reading:', error);
     res.status(500).json({ error: String(error) });
   }
 });
@@ -162,5 +239,4 @@ function buildReadingGenerationPrompt(request: z.infer<typeof ReadingGenerateSch
   return parts.join('\n');
 }
 
-// Export the service for state management
-export { readingRouter, readingService };
+export { readingRouter };

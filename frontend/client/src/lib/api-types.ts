@@ -175,6 +175,14 @@ export interface Quiz {
 }
 
 // API Request/Response Types
+export type GrammarCategory = 'formal' | 'classical' | 'conjunctive' | 'conditional' | 'comparative' | 'emphasis' | 'negative' | 'temporal' | 'causative' | 'other';
+
+export interface GenerateGrammarRequest {
+  topic?: string;
+  category?: GrammarCategory;
+  count?: number;
+}
+
 export interface GenerateKanjiRequest {
   characters?: string[];
   topic?: string;

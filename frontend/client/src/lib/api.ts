@@ -10,6 +10,7 @@ import type {
   StatsResponse,
   DueItemsResponse,
   Quiz,
+  GenerateGrammarRequest,
   GenerateKanjiRequest,
   GenerateVocabularyRequest,
   GenerateReadingRequest,
@@ -33,6 +34,39 @@ import type {
 export function useGrammar() {
   return useQuery<GrammarPoint[]>({
     queryKey: ['/api/grammar'],
+    queryFn: async () => {
+      const res = await fetch('/api/grammar');
+      if (!res.ok) throw new Error('Failed to fetch grammar');
+      const data = await res.json();
+      // API returns { grammar: [...], count: N } - extract the array
+      return (data.grammar || data) as GrammarPoint[];
+    },
+  });
+}
+
+export function useGenerateGrammar() {
+  return useMutation({
+    mutationFn: async (request: GenerateGrammarRequest) => {
+      const res = await apiRequest('POST', '/api/grammar/generate', request);
+      const data = await res.json();
+      // API returns { grammar: [...], count: N } - extract the array
+      return (data.grammar || data) as GrammarPoint[];
+    },
+  });
+}
+
+export function useSaveGrammar() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ grammar, isPublic, userId }: { grammar: GrammarPoint[]; isPublic?: boolean; userId?: string }) => {
+      const res = await apiRequest('POST', '/api/grammar/save', { grammar, isPublic, userId });
+      const data = await res.json();
+      return data as { grammar: GrammarPoint[]; count: number; saved: boolean };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/grammar'] });
+    },
   });
 }
 
@@ -43,6 +77,13 @@ export function useGrammar() {
 export function useKanji() {
   return useQuery<KanjiItem[]>({
     queryKey: ['/api/kanji'],
+    queryFn: async () => {
+      const res = await fetch('/api/kanji');
+      if (!res.ok) throw new Error('Failed to fetch kanji');
+      const data = await res.json();
+      // API returns { kanji: [...], count: N } - extract the array
+      return (data.kanji || data) as KanjiItem[];
+    },
   });
 }
 
@@ -59,14 +100,24 @@ export function useKanjiSearch(query: string) {
 }
 
 export function useGenerateKanji() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (request: GenerateKanjiRequest) => {
       const res = await apiRequest('POST', '/api/kanji/generate', request);
       const data = await res.json();
       // API returns { status, kanji: [...] } or just the array
       return (data.kanji || data) as KanjiItem[];
+    },
+  });
+}
+
+export function useSaveKanji() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ kanji, isPublic, userId }: { kanji: KanjiItem[]; isPublic?: boolean; userId?: string }) => {
+      const res = await apiRequest('POST', '/api/kanji/save', { kanji, isPublic, userId });
+      const data = await res.json();
+      return data as { kanji: KanjiItem[]; count: number; saved: boolean };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/kanji'] });
@@ -81,6 +132,13 @@ export function useGenerateKanji() {
 export function useVocabulary() {
   return useQuery<VocabularyItem[]>({
     queryKey: ['/api/vocabulary'],
+    queryFn: async () => {
+      const res = await fetch('/api/vocabulary');
+      if (!res.ok) throw new Error('Failed to fetch vocabulary');
+      const data = await res.json();
+      // API returns { vocabulary: [...], count: N } - extract the array
+      return (data.vocabulary || data) as VocabularyItem[];
+    },
   });
 }
 
@@ -97,14 +155,24 @@ export function useVocabularySearch(query: string) {
 }
 
 export function useGenerateVocabulary() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (request: GenerateVocabularyRequest) => {
       const res = await apiRequest('POST', '/api/vocabulary/generate', request);
       const data = await res.json();
       // API returns { status, vocabulary: [...] } or just the array
       return (data.vocabulary || data) as VocabularyItem[];
+    },
+  });
+}
+
+export function useSaveVocabulary() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ vocabulary, isPublic, userId }: { vocabulary: VocabularyItem[]; isPublic?: boolean; userId?: string }) => {
+      const res = await apiRequest('POST', '/api/vocabulary/save', { vocabulary, isPublic, userId });
+      const data = await res.json();
+      return data as { vocabulary: VocabularyItem[]; count: number; saved: boolean };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/vocabulary'] });
@@ -119,18 +187,35 @@ export function useGenerateVocabulary() {
 export function useReading() {
   return useQuery<ReadingPassage[]>({
     queryKey: ['/api/reading'],
+    queryFn: async () => {
+      const res = await fetch('/api/reading');
+      if (!res.ok) throw new Error('Failed to fetch reading');
+      const data = await res.json();
+      // API returns { reading: [...], count: N } - extract the array
+      return (data.reading || data) as ReadingPassage[];
+    },
   });
 }
 
 export function useGenerateReading() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (request: GenerateReadingRequest) => {
       const res = await apiRequest('POST', '/api/reading/generate', request);
       const data = await res.json();
       // API returns { status, reading: {...} } or just the object
       return (data.reading || data) as ReadingPassage;
+    },
+  });
+}
+
+export function useSaveReading() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ reading, isPublic, userId }: { reading: ReadingPassage; isPublic?: boolean; userId?: string }) => {
+      const res = await apiRequest('POST', '/api/reading/save', { reading, isPublic, userId });
+      const data = await res.json();
+      return data as { reading: ReadingPassage; saved: boolean };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reading'] });
@@ -145,18 +230,35 @@ export function useGenerateReading() {
 export function useListening() {
   return useQuery<ListeningItem[]>({
     queryKey: ['/api/listening'],
+    queryFn: async () => {
+      const res = await fetch('/api/listening');
+      if (!res.ok) throw new Error('Failed to fetch listening');
+      const data = await res.json();
+      // API returns { listening: [...], count: N } - extract the array
+      return (data.listening || data) as ListeningItem[];
+    },
   });
 }
 
 export function useGenerateListening() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (request: GenerateListeningRequest) => {
       const res = await apiRequest('POST', '/api/listening/generate', request);
       const data = await res.json();
       // API returns { status, listening: {...} } or just the object
       return (data.listening || data) as ListeningItem;
+    },
+  });
+}
+
+export function useSaveListening() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ listening, isPublic, userId }: { listening: ListeningItem; isPublic?: boolean; userId?: string }) => {
+      const res = await apiRequest('POST', '/api/listening/save', { listening, isPublic, userId });
+      const data = await res.json();
+      return data as { listening: ListeningItem; saved: boolean };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/listening'] });
