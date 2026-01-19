@@ -48,6 +48,24 @@ from .video import (
     TTSVoice,
     VideoStylesResponse,
 )
+from .pipeline_config import (
+    PipelineConfig,
+    ScriptProvider,
+    TTSProviderType,
+    ImageProvider,
+    VideoProvider,
+    VideoResolution,
+    VideoFormat,
+    TTSSettings,
+    ImageSettings,
+    VideoSettings,
+    ProviderStatus,
+    VoiceOption,
+    TTSProviderStatus,
+    ProvidersResponse,
+    DEFAULT_PIPELINE_CONFIG,
+    VIDEO_PROVIDER_FALLBACK_ORDER,
+)
 
 __all__ = [
     "ContentType",
@@ -97,4 +115,21 @@ __all__ = [
     "ScriptGenerateRequest",
     "TTSVoice",
     "VideoStylesResponse",
+    # Pipeline config
+    "PipelineConfig",
+    "ScriptProvider",
+    "TTSProviderType",
+    "ImageProvider",
+    "VideoProvider",
+    "VideoResolution",
+    "VideoFormat",
+    "TTSSettings",
+    "ImageSettings",
+    "VideoSettings",
+    "ProviderStatus",
+    "VoiceOption",
+    "TTSProviderStatus",
+    "ProvidersResponse",
+    "DEFAULT_PIPELINE_CONFIG",
+    "VIDEO_PROVIDER_FALLBACK_ORDER",
 ]

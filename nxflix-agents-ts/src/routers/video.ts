@@ -5,7 +5,12 @@ import {
   CHARACTER_ASSETS,
   BACKGROUND_ASSETS,
 } from '../services/video-renderer.js';
+import { FFmpegRendererService } from '../services/ffmpeg-renderer.js';
 import { JapaneseVoices } from '../services/tts.js';
+import {
+  getProvidersStatus,
+  renderWithFallback,
+} from '../services/provider-factory.js';
 import {
   VideoProject,
   VideoCreateRequest,
@@ -13,12 +18,14 @@ import {
   CharacterStyle,
   VideoStyle,
 } from '../models/video.js';
+import { PipelineConfig } from '../models/pipeline-config.js';
 
 const videoRouter = Router();
 
 // Singleton services
 const videoCreator = new VideoCreatorAgent();
 const videoRenderer = new VideoRendererService();
+const ffmpegRenderer = new FFmpegRendererService();
 
 // In-memory storage for video projects
 const videoProjects: Record<string, VideoProject> = {};
@@ -217,7 +224,18 @@ videoRouter.get('/meta/voices', (_req: Request, res: Response) => {
   res.json({ voices });
 });
 
-// POST /api/video/:id/render - Trigger video rendering (placeholder)
+// GET /api/video/providers - Get available providers and their status
+videoRouter.get('/meta/providers', async (_req: Request, res: Response) => {
+  try {
+    const providers = await getProvidersStatus();
+    res.json(providers);
+  } catch (error) {
+    console.error('Error getting providers status:', error);
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// POST /api/video/:id/render - Trigger video rendering with FFmpeg
 videoRouter.post('/:id/render', async (req: Request<{ id: string }>, res: Response) => {
   const project = videoProjects[req.params.id];
   if (!project) {
@@ -228,11 +246,61 @@ videoRouter.post('/:id/render', async (req: Request<{ id: string }>, res: Respon
   try {
     // Update status to generating
     project.status = 'generating';
-    project.progress = 50;
+    project.progress = 25;
     project.updatedAt = new Date().toISOString();
 
-    // Render video (placeholder - returns placeholder URLs)
-    const renderResult = await videoRenderer.render(project);
+    // Check if FFmpeg is available
+    const ffmpegAvailable = await ffmpegRenderer.checkFFmpegAvailable();
+
+    if (ffmpegAvailable) {
+      // Render with FFmpeg
+      project.progress = 50;
+      const renderResult = await ffmpegRenderer.render(project);
+
+      // Update project with results
+      project.videoUrl = renderResult.videoUrl;
+      project.thumbnailUrl = renderResult.thumbnailUrl;
+      project.status = 'ready';
+      project.progress = 100;
+    } else {
+      // Fall back to placeholder renderer
+      console.warn('FFmpeg not available, using placeholder renderer');
+      const renderResult = await videoRenderer.render(project);
+      project.videoUrl = renderResult.videoUrl;
+      project.thumbnailUrl = renderResult.thumbnailUrl;
+      project.status = 'ready';
+      project.progress = 100;
+    }
+
+    project.updatedAt = new Date().toISOString();
+    res.json({ project } as VideoSingleResponse);
+  } catch (error) {
+    console.error('Error rendering video:', error);
+    project.status = 'failed';
+    project.errorMessage = String(error);
+    project.updatedAt = new Date().toISOString();
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// POST /api/video/:id/render-with-provider - Render with specific provider
+videoRouter.post('/:id/render-with-provider', async (req: Request<{ id: string }>, res: Response) => {
+  const project = videoProjects[req.params.id];
+  if (!project) {
+    res.status(404).json({ error: 'Video project not found' });
+    return;
+  }
+
+  const { provider = 'ffmpeg' } = req.body;
+
+  try {
+    // Update status to generating
+    project.status = 'generating';
+    project.progress = 25;
+    project.updatedAt = new Date().toISOString();
+
+    // Render with fallback support
+    const renderResult = await renderWithFallback(project, provider, ['ffmpeg']);
 
     // Update project with results
     project.videoUrl = renderResult.videoUrl;

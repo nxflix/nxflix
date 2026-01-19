@@ -2,6 +2,7 @@ export * from './content-type.js';
 export * from './grammar.js';
 export * from './kanji.js';
 export * from './listening.js';
+export * from './pipeline-config.js';
 export * from './progress.js';
 export * from './quiz.js';
 export * from './reading.js';

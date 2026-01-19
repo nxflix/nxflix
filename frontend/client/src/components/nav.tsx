@@ -15,6 +15,7 @@ export function Nav() {
     { href: "/focus", label: "Focus", icon: Target },
     { href: "/study", label: "Study", icon: BookOpen },
     { href: "/create", label: "Create", icon: Sparkles },
+    { href: "/studio", label: "Studio", icon: Film },
     { href: "/subscribe", label: "Premium", icon: Crown },
   ];
 

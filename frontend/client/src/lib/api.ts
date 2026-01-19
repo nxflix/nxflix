@@ -384,3 +384,53 @@ export function useVideoVoices() {
     },
   });
 }
+
+export interface ProviderStatus {
+  id: string;
+  name: string;
+  available: boolean;
+  reason?: string;
+  voices?: Array<{
+    id: string;
+    name: string;
+    gender: string;
+    language: string;
+    provider: string;
+  }>;
+}
+
+export interface ProvidersResponse {
+  script: ProviderStatus[];
+  tts: ProviderStatus[];
+  image: ProviderStatus[];
+  video: ProviderStatus[];
+}
+
+export function useVideoProviders() {
+  return useQuery<ProvidersResponse>({
+    queryKey: ['/api/video/meta/providers'],
+    queryFn: async () => {
+      const res = await fetch('/api/video/meta/providers');
+      if (!res.ok) throw new Error('Failed to fetch video providers');
+      return res.json();
+    },
+  });
+}
+
+export function useRenderVideo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, provider }: { id: string; provider?: string }) => {
+      const endpoint = provider
+        ? `/api/video/${id}/render-with-provider`
+        : `/api/video/${id}/render`;
+      const body = provider ? { provider } : undefined;
+      const res = await apiRequest('POST', endpoint, body);
+      return res.json() as Promise<{ project: VideoProject }>;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/video', variables.id] });
+    },
+  });
+}

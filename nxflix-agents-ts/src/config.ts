@@ -17,8 +17,15 @@ export interface Settings {
   opikApiKey: string;
   opikProjectName: string;
   // TTS settings
-  ttsProvider: 'google' | 'openai' | 'elevenlabs';
+  ttsProvider: 'google' | 'openai' | 'elevenlabs' | 'azure';
   elevenLabsApiKey: string;
+  azureSpeechKey: string;
+  azureSpeechRegion: string;
+  // Image generation settings
+  stabilityApiKey: string;
+  // Video generation settings
+  runwayApiKey: string;
+  pikaApiKey: string;
   // SideShift settings
   sideshiftApiUrl: string;
   sideshiftAffiliateId: string;
@@ -66,6 +73,13 @@ export const settings: Settings = {
   // TTS settings
   ttsProvider: (getEnv('TTS_PROVIDER', 'openai') as Settings['ttsProvider']),
   elevenLabsApiKey: getEnv('ELEVENLABS_API_KEY'),
+  azureSpeechKey: getEnv('AZURE_SPEECH_KEY'),
+  azureSpeechRegion: getEnv('AZURE_SPEECH_REGION', 'eastus'),
+  // Image generation settings
+  stabilityApiKey: getEnv('STABILITY_API_KEY'),
+  // Video generation settings
+  runwayApiKey: getEnv('RUNWAY_API_KEY'),
+  pikaApiKey: getEnv('PIKA_API_KEY'),
   // SideShift settings
   sideshiftApiUrl: getEnv('SIDESHIFT_API_URL', 'https://sideshift.ai/api/v2'),
   sideshiftAffiliateId: getEnv('SIDESHIFT_AFFILIATE_ID', ''),
