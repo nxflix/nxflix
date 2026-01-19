@@ -24,6 +24,8 @@ export interface Settings {
   // Image generation settings
   stabilityApiKey: string;
   // Video generation settings
+  hedraApiKey: string;
+  didApiKey: string;
   runwayApiKey: string;
   pikaApiKey: string;
   // SideShift settings
@@ -78,6 +80,8 @@ export const settings: Settings = {
   // Image generation settings
   stabilityApiKey: getEnv('STABILITY_API_KEY'),
   // Video generation settings
+  hedraApiKey: getEnv('HEDRA_API_KEY'),
+  didApiKey: getEnv('DID_API_KEY'),
   runwayApiKey: getEnv('RUNWAY_API_KEY'),
   pikaApiKey: getEnv('PIKA_API_KEY'),
   // SideShift settings

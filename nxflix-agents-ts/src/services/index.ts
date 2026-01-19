@@ -5,6 +5,7 @@ export { VocabularyService } from './vocabulary.js';
 export { ListeningService } from './listening.js';
 export { ReadingService } from './reading.js';
 export { TTSService, TTSProvider, JapaneseVoices } from './tts.js';
+export { HedraService, hedraService } from './hedra.js';
 export { SideshiftService, sideshiftService } from './sideshift.js';
 export { SubscriptionService, subscriptionService } from './subscription.js';
 export { VideoRendererService, CHARACTER_ASSETS, BACKGROUND_ASSETS } from './video-renderer.js';
@@ -32,3 +33,10 @@ export type { EpochConfig } from './epoch.js';
 export type { TrackEventRequest, ContentStats, CreatorPerformance, LeaderboardEntry } from './analytics.js';
 export type { ProcessEpochResult, DailyRewardResult } from './rewards.js';
 export type { ContentCandidate } from './featured-content.js';
+export type {
+  AspectRatio,
+  VideoResolution,
+  GenerationStatus,
+  GenerateTalkingVideoOptions,
+  GenerateTalkingVideoResult,
+} from './hedra.js';

@@ -177,6 +177,95 @@ export async function registerRoutes(
   });
 
   // ============================================================================
+  // Animation Routes (proxy to TypeScript agent - Hedra integration)
+  // ============================================================================
+  app.get("/api/animation/config", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/animation/config", "GET");
+    res.json(result);
+  });
+
+  app.get("/api/animation/credits", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/animation/credits", "GET");
+    // Check for error response from backend
+    if ((result as any).error && !(result as any).credits) {
+      res.status(500).json(result);
+      return;
+    }
+    res.json(result);
+  });
+
+  app.post("/api/animation/generate", async (req: Request, res: Response) => {
+    // Longer timeout for video generation (up to 5 minutes)
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/animation/generate", "POST", req.body, 300000);
+    // Note: result.status here is the generation status ("processing", "failed", etc.), not HTTP status
+    // Return 200 with the result - frontend handles the generation status
+    if ((result as any).error && !(result as any).jobId) {
+      res.status(500).json(result);
+      return;
+    }
+    res.json(result);
+  });
+
+  app.get("/api/animation/status/:jobId", async (req: Request, res: Response) => {
+    const { jobId } = req.params;
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/animation/status/${jobId}`, "GET");
+    // Note: result.status is the job status, not HTTP status
+    res.json(result);
+  });
+
+  app.post("/api/animation/wait/:jobId", async (req: Request, res: Response) => {
+    const { jobId } = req.params;
+    const timeout = req.query.timeout || '300000';
+    // Longer timeout for waiting (up to 5 minutes)
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/animation/wait/${jobId}?timeout=${timeout}`, "POST", req.body, 300000);
+    // Note: result.status is the job status, not HTTP status
+    res.json(result);
+  });
+
+  app.get("/api/animation/voices", async (req: Request, res: Response) => {
+    const provider = req.query.provider || 'microsoft';
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/animation/voices?provider=${provider}`, "GET");
+    res.json(result);
+  });
+
+  // Script generation routes
+  app.post("/api/animation/script/generate", async (req: Request, res: Response) => {
+    // Script generation can take time with LLM
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/animation/script/generate", "POST", req.body, 120000);
+    res.json(result);
+  });
+
+  app.post("/api/animation/script/extract-dialogue", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/animation/script/extract-dialogue", "POST", req.body);
+    res.json(result);
+  });
+
+  // AI Video Generation Routes (Runway ML)
+  app.post("/api/animation/ai-video/generate", async (req: Request, res: Response) => {
+    // AI video generation - short timeout to start, polling for completion
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/animation/ai-video/generate", "POST", req.body, 60000);
+    res.json(result);
+  });
+
+  app.get("/api/animation/ai-video/status/:jobId", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/animation/ai-video/status/${req.params.jobId}`, "GET");
+    res.json(result);
+  });
+
+  app.post("/api/animation/ai-video/wait/:jobId", async (req: Request, res: Response) => {
+    // Long timeout for waiting for completion (up to 10 minutes)
+    const timeout = parseInt(req.query.timeout as string) || 10 * 60 * 1000;
+    const result = await proxyToAgent(
+      AGENT_TS_URL,
+      `/api/animation/ai-video/wait/${req.params.jobId}?timeout=${timeout}`,
+      "POST",
+      req.body,
+      timeout + 30000 // Extra buffer for network
+    );
+    res.json(result);
+  });
+
+  // ============================================================================
   // Quiz Routes (proxy to TypeScript agent)
   // ============================================================================
   app.post("/api/quiz/generate", async (req: Request, res: Response) => {

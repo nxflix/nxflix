@@ -565,6 +565,276 @@ export function useRenderVideo() {
 }
 
 // ============================================================================
+// Animation Hooks (D-ID & Hedra - Talking Head Videos)
+// ============================================================================
+
+export interface AnimationProviderConfig {
+  name: string;
+  configured: boolean;
+  features: string[];
+  recommended?: boolean;
+}
+
+export interface AnimationConfig {
+  providers: {
+    did: AnimationProviderConfig;
+    hedra: AnimationProviderConfig;
+  };
+  defaultProvider: string;
+  ttsProviders: string[];
+  maxDuration: number;
+}
+
+export interface AnimationVoice {
+  id: string;
+  name: string;
+  language: string;
+}
+
+export interface GenerateAnimationRequest {
+  /** Base64-encoded portrait image */
+  image: string;
+  /** Whether image is base64 (default true) */
+  imageIsBase64?: boolean;
+  /** Audio as base64 or URL (optional if text is provided) */
+  audio?: string;
+  /** Text to convert to speech */
+  text?: string;
+  /** Provider: 'd-id' (default) or 'hedra' */
+  provider?: 'd-id' | 'hedra';
+  /** TTS provider for text */
+  ttsProvider?: 'microsoft' | 'elevenlabs' | 'google' | 'amazon';
+  /** Voice ID for TTS */
+  voiceId?: string;
+  /** Whether to wait for completion */
+  waitForCompletion?: boolean;
+  /** Timeout for waiting (ms) */
+  timeout?: number;
+}
+
+export interface AnimationResult {
+  success: boolean;
+  jobId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  videoUrl?: string;
+  error?: string;
+  provider?: string;
+}
+
+// Script types
+export interface ScriptCharacter {
+  id: string;
+  name: string;
+  nameJapanese: string;
+  role: string;
+  description: string;
+  voiceType: string;
+}
+
+export interface ScriptLine {
+  type: 'dialogue' | 'action' | 'direction' | 'transition';
+  characterId?: string;
+  japanese: string;
+  english: string;
+  notes?: string;
+  duration?: number;
+}
+
+export interface ScriptScene {
+  sceneNumber: number;
+  location: string;
+  locationJapanese: string;
+  timeOfDay: string;
+  description: string;
+  lines: ScriptLine[];
+  learningFocus?: string[];
+}
+
+export interface HollywoodScript {
+  title: string;
+  titleJapanese: string;
+  genre: string;
+  targetLevel: string;
+  synopsis: string;
+  synopsisJapanese: string;
+  characters: ScriptCharacter[];
+  scenes: ScriptScene[];
+  totalDuration: number;
+  learningObjectives: {
+    grammar: string[];
+    vocabulary: string[];
+    kanji: string[];
+    culturalNotes?: string[];
+  };
+}
+
+export interface GenerateScriptRequest {
+  grammar?: Array<{ pattern: string; meaning: string; example?: string }>;
+  vocabulary?: Array<{ word: string; reading?: string; meaning: string }>;
+  kanji?: Array<{ character: string; meaning: string; readings?: string[] }>;
+  genre: string;
+  context?: string;
+  targetDuration?: number;
+  characterCount?: number;
+  level?: string;
+}
+
+export function useAnimationConfig() {
+  return useQuery<AnimationConfig>({
+    queryKey: ['/api/animation/config'],
+    queryFn: async () => {
+      const res = await fetch('/api/animation/config');
+      if (!res.ok) throw new Error('Failed to fetch animation config');
+      return res.json();
+    },
+  });
+}
+
+export function useAnimationVoices(provider: string = 'microsoft') {
+  return useQuery<{ voices: AnimationVoice[]; provider: string }>({
+    queryKey: ['/api/animation/voices', provider],
+    queryFn: async () => {
+      const res = await fetch(`/api/animation/voices?provider=${provider}`);
+      if (!res.ok) throw new Error('Failed to fetch voices');
+      return res.json();
+    },
+  });
+}
+
+export function useAnimationCredits() {
+  return useQuery<{ credits: number; remaining: number; provider: string }>({
+    queryKey: ['/api/animation/credits'],
+    queryFn: async () => {
+      const res = await fetch('/api/animation/credits');
+      if (!res.ok) throw new Error('Failed to fetch animation credits');
+      return res.json();
+    },
+  });
+}
+
+export function useGenerateAnimation() {
+  return useMutation({
+    mutationFn: async (request: GenerateAnimationRequest) => {
+      const res = await apiRequest('POST', '/api/animation/generate', request);
+      return res.json() as Promise<AnimationResult>;
+    },
+  });
+}
+
+export function useAnimationStatus(jobId: string, enabled: boolean = true, provider: string = 'd-id') {
+  return useQuery<AnimationResult>({
+    queryKey: ['/api/animation/status', jobId, provider],
+    queryFn: async () => {
+      const res = await fetch(`/api/animation/status/${jobId}?provider=${provider}`);
+      if (!res.ok) throw new Error('Failed to fetch animation status');
+      return res.json();
+    },
+    enabled: enabled && !!jobId,
+    refetchInterval: (query) => {
+      // Poll while processing
+      const data = query.state.data;
+      return data?.status === 'processing' || data?.status === 'pending' ? 3000 : false;
+    },
+  });
+}
+
+export function useWaitForAnimation() {
+  return useMutation({
+    mutationFn: async ({ jobId, timeout = 300000, provider = 'd-id' }: { jobId: string; timeout?: number; provider?: string }) => {
+      const res = await apiRequest('POST', `/api/animation/wait/${jobId}?timeout=${timeout}&provider=${provider}`, {});
+      return res.json() as Promise<AnimationResult>;
+    },
+  });
+}
+
+// Script generation hooks for Animation Lab (Hollywood-style scripts)
+export function useGenerateAnimationScript() {
+  return useMutation({
+    mutationFn: async (request: GenerateScriptRequest) => {
+      const res = await apiRequest('POST', '/api/animation/script/generate', request);
+      return res.json() as Promise<{ success: boolean; script: HollywoodScript }>;
+    },
+  });
+}
+
+export function useExtractDialogue() {
+  return useMutation({
+    mutationFn: async ({ script, characterId }: { script: HollywoodScript; characterId?: string }) => {
+      const res = await apiRequest('POST', '/api/animation/script/extract-dialogue', { script, characterId });
+      return res.json() as Promise<{ success: boolean; dialogue: string; characterId?: string }>;
+    },
+  });
+}
+
+// ============================================================================
+// AI Video Generation Hooks (Runway ML)
+// ============================================================================
+
+export interface GenerateAIVideoRequest {
+  /** Text prompt describing the video */
+  prompt: string;
+  /** Optional reference image (base64 or URL) */
+  image?: string;
+  /** Whether image is a URL (default: false = base64) */
+  imageIsUrl?: boolean;
+  /** Provider */
+  provider?: 'runway';
+  /** Duration in seconds (5 or 10) */
+  duration?: '5' | '10';
+  /** Aspect ratio */
+  ratio?: '16:9' | '9:16' | '1:1';
+  /** Whether to wait for completion */
+  waitForCompletion?: boolean;
+  /** Timeout for waiting (ms) */
+  timeout?: number;
+}
+
+export interface AIVideoResult {
+  success: boolean;
+  jobId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  videoUrl?: string;
+  error?: string;
+  progress?: number;
+  provider?: string;
+}
+
+export function useGenerateAIVideo() {
+  return useMutation({
+    mutationFn: async (request: GenerateAIVideoRequest) => {
+      const res = await apiRequest('POST', '/api/animation/ai-video/generate', request);
+      return res.json() as Promise<AIVideoResult>;
+    },
+  });
+}
+
+export function useAIVideoStatus(jobId: string, enabled: boolean = true) {
+  return useQuery<AIVideoResult>({
+    queryKey: ['/api/animation/ai-video/status', jobId],
+    queryFn: async () => {
+      const res = await fetch(`/api/animation/ai-video/status/${jobId}`);
+      if (!res.ok) throw new Error('Failed to fetch AI video status');
+      return res.json();
+    },
+    enabled: enabled && !!jobId,
+    refetchInterval: (query) => {
+      // Poll while processing
+      const data = query.state.data;
+      return data?.status === 'processing' || data?.status === 'pending' ? 5000 : false;
+    },
+  });
+}
+
+export function useWaitForAIVideo() {
+  return useMutation({
+    mutationFn: async ({ jobId, timeout = 600000 }: { jobId: string; timeout?: number }) => {
+      const res = await apiRequest('POST', `/api/animation/ai-video/wait/${jobId}?timeout=${timeout}`, {});
+      return res.json() as Promise<AIVideoResult>;
+    },
+  });
+}
+
+// ============================================================================
 // Analytics Hooks
 // ============================================================================
 

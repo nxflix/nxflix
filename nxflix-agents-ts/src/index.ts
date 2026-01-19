@@ -18,6 +18,7 @@ import {
   sideshiftRouter,
   focusRouter,
   videoRouter,
+  animationRouter,
   analyticsRouter,
   rewardsRouter,
   adminRouter,
@@ -62,6 +63,7 @@ app.use('/api/tts', ttsRouter);
 app.use('/api/sideshift', sideshiftRouter);
 app.use('/api/focus', focusRouter);
 app.use('/api/video', videoRouter);
+app.use('/api/animation', animationRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/rewards', rewardsRouter);
 app.use('/api/admin', adminRouter);

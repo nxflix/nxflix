@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -56,8 +56,19 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useGrammar, useVocabulary, useKanji } from '@/lib/api';
+import {
+  useGrammar,
+  useVocabulary,
+  useKanji,
+  useAnimationConfig,
+  useGenerateAnimation,
+  useAnimationStatus,
+  useGenerateAnimationScript,
+  useGenerateAIVideo,
+  useAIVideoStatus,
+} from '@/lib/api';
 import type { GrammarPoint, VocabularyItem, KanjiItem } from '@/lib/api-types';
+import type { AnimationResult, HollywoodScript, ScriptScene, ScriptLine, AIVideoResult } from '@/lib/api';
 
 // Experiment types
 type ExperimentType = 'live2d' | 'ai-video' | 'talking-head' | 'sd-animation';
@@ -104,6 +115,54 @@ const ANIME_STYLES = [
   { id: 'chibi', name: 'Chibi/Cute', preview: 'from-pink-400 to-purple-400' },
 ];
 
+// Sample talent/actors for casting (like a talent agency roster)
+// Using PNG format with realistic avatars - Hedra requires raster images, not SVG
+const SAMPLE_CHARACTERS = [
+  {
+    id: 'aoi-talent',
+    name: 'Aoi',
+    description: 'Lead actress',
+    tags: ['Drama', 'Romance'],
+    // Using notionists-neutral for more realistic faces (PNG format)
+    imageUrl: 'https://api.dicebear.com/7.x/notionists-neutral/png?seed=AoiActress&backgroundColor=ffd5dc&size=256',
+  },
+  {
+    id: 'ren-talent',
+    name: 'Ren',
+    description: 'Lead actor',
+    tags: ['Action', 'Thriller'],
+    imageUrl: 'https://api.dicebear.com/7.x/notionists-neutral/png?seed=RenActor&backgroundColor=c0aede&size=256',
+  },
+  {
+    id: 'hana-talent',
+    name: 'Hana',
+    description: 'Supporting actress',
+    tags: ['Comedy', 'Slice of Life'],
+    imageUrl: 'https://api.dicebear.com/7.x/notionists-neutral/png?seed=HanaSupport&backgroundColor=b6e3f4&size=256',
+  },
+  {
+    id: 'kai-talent',
+    name: 'Kai',
+    description: 'Character actor',
+    tags: ['Mystery', 'Horror'],
+    imageUrl: 'https://api.dicebear.com/7.x/notionists-neutral/png?seed=KaiCharacter&backgroundColor=d1d4f9&size=256',
+  },
+  {
+    id: 'yuki-talent',
+    name: 'Yuki',
+    description: 'Narrator',
+    tags: ['Documentary', 'Educational'],
+    imageUrl: 'https://api.dicebear.com/7.x/notionists-neutral/png?seed=YukiNarrator&backgroundColor=ffeaa7&size=256',
+  },
+  {
+    id: 'sora-talent',
+    name: 'Sora',
+    description: 'Voice actor',
+    tags: ['Animation', 'Fantasy'],
+    imageUrl: 'https://api.dicebear.com/7.x/notionists-neutral/png?seed=SoraVoice&backgroundColor=a3e4d7&size=256',
+  },
+];
+
 // Scene/Genre types for video generation
 const SCENE_GENRES = [
   { id: 'slice-of-life', name: 'Slice of Life', description: 'Everyday conversations and situations' },
@@ -124,10 +183,105 @@ export default function AnimationLab() {
   const { data: vocabularyData, isLoading: vocabLoading } = useVocabulary();
   const { data: kanjiData, isLoading: kanjiLoading } = useKanji();
 
+  // Animation API hooks
+  const { data: animationConfig } = useAnimationConfig();
+  const generateAnimation = useGenerateAnimation();
+  const generateScript = useGenerateAnimationScript();
+  const generateAIVideo = useGenerateAIVideo();
+
+  // Script state
+  const [generatedScript, setGeneratedScript] = useState<HollywoodScript | null>(null);
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [showScriptPanel, setShowScriptPanel] = useState(false);
+
   // General state
   const [activeTab, setActiveTab] = useState<ExperimentType>('ai-video');
   const [experiments, setExperiments] = useState<ExperimentResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [currentProvider, setCurrentProvider] = useState<string>('d-id');
+  const [currentJobType, setCurrentJobType] = useState<'talking-head' | 'ai-video'>('talking-head');
+
+  // Poll for status when we have a job - talking head
+  const { data: animationStatus } = useAnimationStatus(
+    currentJobId || '',
+    !!currentJobId && currentJobType === 'talking-head',
+    currentProvider
+  );
+
+  // Poll for status when we have a job - AI video
+  const { data: aiVideoStatus } = useAIVideoStatus(
+    currentJobId || '',
+    !!currentJobId && currentJobType === 'ai-video'
+  );
+
+  // Handle animation status updates (talking-head)
+  useEffect(() => {
+    if (animationStatus && currentJobId && currentJobType === 'talking-head') {
+      // Update the experiment in the list
+      setExperiments(prev => prev.map(exp =>
+        exp.id === currentJobId
+          ? {
+              ...exp,
+              status: animationStatus.status as ExperimentResult['status'],
+              outputUrl: animationStatus.videoUrl,
+              error: animationStatus.error,
+            }
+          : exp
+      ));
+
+      // Show toast on completion
+      if (animationStatus.status === 'completed') {
+        toast({
+          title: 'Animation Complete',
+          description: 'Your talking head video is ready!',
+        });
+        setIsProcessing(false);
+      } else if (animationStatus.status === 'failed') {
+        toast({
+          title: 'Animation Failed',
+          description: animationStatus.error || 'Unknown error occurred',
+          variant: 'destructive',
+        });
+        setIsProcessing(false);
+        setCurrentJobId(null);
+      }
+    }
+  }, [animationStatus, currentJobId, currentJobType, toast]);
+
+  // Handle AI video status updates (Runway)
+  useEffect(() => {
+    if (aiVideoStatus && currentJobId && currentJobType === 'ai-video') {
+      // Update the experiment in the list
+      setExperiments(prev => prev.map(exp =>
+        exp.id === currentJobId
+          ? {
+              ...exp,
+              status: aiVideoStatus.status as ExperimentResult['status'],
+              outputUrl: aiVideoStatus.videoUrl,
+              error: aiVideoStatus.error,
+            }
+          : exp
+      ));
+
+      // Show toast on completion
+      if (aiVideoStatus.status === 'completed') {
+        toast({
+          title: 'AI Video Complete',
+          description: 'Your AI-generated video is ready!',
+        });
+        setIsProcessing(false);
+      } else if (aiVideoStatus.status === 'failed') {
+        toast({
+          title: 'AI Video Generation Failed',
+          description: aiVideoStatus.error || 'Unknown error occurred',
+          variant: 'destructive',
+        });
+        setIsProcessing(false);
+        setCurrentJobId(null);
+      }
+    }
+  }, [aiVideoStatus, currentJobId, currentJobType, toast]);
 
   // Learning content selection
   const [selectedGrammar, setSelectedGrammar] = useState<GrammarPoint[]>([]);
@@ -168,27 +322,140 @@ export default function AnimationLab() {
     );
   };
 
-  // Generate script prompt from selected content
-  const generateScriptPrompt = () => {
+  // Generate Hollywood-style script from selected content
+  const handleGenerateScript = async () => {
+    if (selectedGrammar.length === 0 && selectedVocabulary.length === 0 && selectedKanji.length === 0) {
+      toast({
+        title: 'No Content Selected',
+        description: 'Please select at least some grammar, vocabulary, or kanji to generate a script.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsGeneratingScript(true);
+    toast({
+      title: 'Generating Script',
+      description: 'Creating a Hollywood-style screenplay for your learning content...',
+    });
+
+    try {
+      const result = await generateScript.mutateAsync({
+        grammar: selectedGrammar.map(g => ({
+          pattern: g.pattern,
+          meaning: g.meaning,
+          example: g.example,
+        })),
+        vocabulary: selectedVocabulary.map(v => ({
+          word: v.word,
+          reading: v.reading,
+          meaning: v.meanings[0],
+        })),
+        kanji: selectedKanji.map(k => ({
+          character: k.character,
+          meaning: k.meanings[0],
+          readings: [...(k.onyomi || []), ...(k.kunyomi || [])],
+        })),
+        genre: sceneGenre,
+        context: sceneContext || undefined,
+        targetDuration: 60,
+        characterCount: 2,
+        level: 'JLPT N1',
+      });
+
+      if (result.success && result.script) {
+        setGeneratedScript(result.script);
+        setShowScriptPanel(true);
+        toast({
+          title: 'Script Generated',
+          description: `"${result.script.title}" - ${result.script.scenes.length} scene(s) ready`,
+        });
+      } else {
+        throw new Error('Failed to generate script');
+      }
+    } catch (error) {
+      console.error('Script generation error:', error);
+      toast({
+        title: 'Script Generation Failed',
+        description: String(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingScript(false);
+    }
+  };
+
+  // Extract all dialogue from script for speech
+  const getScriptDialogue = (script: HollywoodScript, characterId?: string): string => {
+    const lines: string[] = [];
+    for (const scene of script.scenes) {
+      for (const line of scene.lines) {
+        if (line.type === 'dialogue') {
+          if (!characterId || line.characterId === characterId) {
+            lines.push(line.japanese);
+          }
+        }
+      }
+    }
+    return lines.join('\n');
+  };
+
+  // Use first dialogue line from script
+  const useDialogueFromScript = (line: ScriptLine) => {
+    setSampleText(line.japanese);
+    toast({
+      title: 'Dialogue Selected',
+      description: 'The dialogue has been set as your speech text.',
+    });
+  };
+
+  // Generate AI Video prompt from script
+  const generateVideoPromptFromScript = (script: HollywoodScript, sceneIndex: number = 0): string => {
+    const scene = script.scenes[sceneIndex];
+    if (!scene) return '';
+
     const parts: string[] = [];
 
-    if (selectedGrammar.length > 0) {
-      parts.push(`Grammar points to demonstrate: ${selectedGrammar.map(g => `${g.pattern} (${g.meaning})`).join(', ')}`);
-    }
-    if (selectedVocabulary.length > 0) {
-      parts.push(`Vocabulary to include: ${selectedVocabulary.map(v => `${v.word} (${v.meanings[0]})`).join(', ')}`);
-    }
-    if (selectedKanji.length > 0) {
-      parts.push(`Kanji to feature: ${selectedKanji.map(k => `${k.character} (${k.meanings[0]})`).join(', ')}`);
-    }
-    if (sceneContext) {
-      parts.push(`Scene context: ${sceneContext}`);
+    // Add scene setting
+    parts.push(`Scene: ${scene.location}`);
+    parts.push(`Setting: ${scene.description}`);
+
+    // Add character descriptions
+    const sceneCharacterIds = new Set(
+      scene.lines
+        .filter(l => l.type === 'dialogue' && l.characterId)
+        .map(l => l.characterId)
+    );
+    const sceneCharacters = script.characters.filter(c => sceneCharacterIds.has(c.id));
+    if (sceneCharacters.length > 0) {
+      parts.push(`Characters: ${sceneCharacters.map(c => `${c.name} (${c.description})`).join(', ')}`);
     }
 
-    const genre = SCENE_GENRES.find(g => g.id === sceneGenre);
-    parts.push(`Genre/Style: ${genre?.name} - ${genre?.description}`);
+    // Add action descriptions
+    const actions = scene.lines.filter(l => l.type === 'action').map(l => l.english);
+    if (actions.length > 0) {
+      parts.push(`Actions: ${actions.join('. ')}`);
+    }
 
-    return parts.join('\n\n');
+    // Add style hints
+    parts.push(`Style: Anime, ${script.genre}, Japanese language learning video`);
+    parts.push(`Mood: Educational yet engaging, natural conversation`);
+
+    return parts.join('\n');
+  };
+
+  // Use script for AI Video generation
+  const useScriptForVideoGen = (sceneIndex: number = 0) => {
+    if (!generatedScript) return;
+
+    const prompt = generateVideoPromptFromScript(generatedScript, sceneIndex);
+    setPromptText(prompt);
+    setActiveTab('ai-video');
+
+    toast({
+      title: 'Script Applied to AI Video',
+      description: `Scene ${sceneIndex + 1} has been converted to a video prompt.`,
+    });
   };
 
   // AI Video settings
@@ -221,10 +488,46 @@ export default function AnimationLab() {
   };
 
   const runExperiment = async () => {
+    // Check if D-ID is configured for talking-head
+    if (activeTab === 'talking-head') {
+      const didConfigured = animationConfig?.providers?.did?.configured;
+      const hedraConfigured = animationConfig?.providers?.hedra?.configured;
+
+      if (!didConfigured && !hedraConfigured) {
+        toast({
+          title: 'No Video Provider Configured',
+          description: 'Set DID_API_KEY or HEDRA_API_KEY in your environment to enable talking head generation.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    // Require image for talking-head
+    if (activeTab === 'talking-head' && !referenceImage) {
+      toast({
+        title: 'Image Required',
+        description: 'Please upload a portrait image for the talking head animation.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Require text for talking-head
+    if (activeTab === 'talking-head' && !sampleText.trim()) {
+      toast({
+        title: 'Text Required',
+        description: 'Please enter Japanese text for the character to speak.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsProcessing(true);
 
+    const experimentId = `exp-${Date.now()}`;
     const newExperiment: ExperimentResult = {
-      id: `exp-${Date.now()}`,
+      id: experimentId,
       type: activeTab,
       status: 'processing',
       inputImage: referenceImage || undefined,
@@ -235,7 +538,6 @@ export default function AnimationLab() {
         text: sampleText,
         style: animeStyle,
         duration: videoDuration[0],
-        // Learning content
         grammarPoints: selectedGrammar.map(g => ({ id: g.id, pattern: g.pattern, meaning: g.meaning })),
         vocabulary: selectedVocabulary.map(v => ({ id: v.id, word: v.word, meaning: v.meanings[0] })),
         kanji: selectedKanji.map(k => ({ id: k.id, character: k.character, meaning: k.meanings[0] })),
@@ -247,25 +549,184 @@ export default function AnimationLab() {
 
     setExperiments(prev => [newExperiment, ...prev]);
 
-    // Simulate processing (replace with actual API calls)
-    toast({
-      title: 'Experiment Started',
-      description: `Running ${activeTab} experiment with ${newExperiment.parameters.provider}...`,
-    });
+    // Use D-ID or Hedra API for talking-head
+    if (activeTab === 'talking-head') {
+      const useDidProvider = animationConfig?.providers?.did?.configured;
+      const providerName = useDidProvider ? 'D-ID' : 'Hedra';
 
-    // Simulated delay - replace with actual API integration
-    setTimeout(() => {
-      setExperiments(prev => prev.map(exp =>
-        exp.id === newExperiment.id
-          ? { ...exp, status: 'completed' as const, outputUrl: '/placeholder-video.mp4' }
-          : exp
-      ));
-      setIsProcessing(false);
       toast({
-        title: 'Experiment Complete',
-        description: 'Your animation has been generated. Check the results panel.',
+        title: 'Generating Animation',
+        description: `Using ${providerName} to create your talking head video...`,
       });
-    }, 3000);
+
+      try {
+        // Extract base64 from data URL
+        const imageBase64 = referenceImage!.split(',')[1] || referenceImage!;
+
+        const result = await generateAnimation.mutateAsync({
+          image: imageBase64,
+          text: sampleText,
+          provider: useDidProvider ? 'd-id' : 'hedra',
+          ttsProvider: 'microsoft', // D-ID works well with Microsoft voices
+          voiceId: voiceId === 'ja-female-1' ? 'ja-JP-NanamiNeural' :
+                   voiceId === 'ja-female-2' ? 'ja-JP-AoiNeural' :
+                   voiceId === 'ja-male-1' ? 'ja-JP-KeitaNeural' :
+                   'ja-JP-DaichiNeural',
+          waitForCompletion: false,
+        });
+
+        if (result.success && result.jobId) {
+          // Update experiment with job ID
+          setExperiments(prev => prev.map(exp =>
+            exp.id === experimentId
+              ? { ...exp, id: result.jobId }
+              : exp
+          ));
+          setCurrentJobId(result.jobId);
+          setCurrentProvider(result.provider || (useDidProvider ? 'd-id' : 'hedra'));
+          setCurrentJobType('talking-head');
+
+          toast({
+            title: 'Processing',
+            description: `Video generation started with ${providerName}. This may take 1-2 minutes...`,
+          });
+        } else {
+          throw new Error(result.error || 'Failed to start generation');
+        }
+      } catch (error) {
+        console.error('Animation generation error:', error);
+        setExperiments(prev => prev.map(exp =>
+          exp.id === experimentId
+            ? { ...exp, status: 'failed' as const, error: String(error) }
+            : exp
+        ));
+        setIsProcessing(false);
+        toast({
+          title: 'Generation Failed',
+          description: String(error),
+          variant: 'destructive',
+        });
+      }
+    } else if (activeTab === 'ai-video') {
+      // AI Video Generation with Runway ML
+      const runwayConfigured = animationConfig?.providers?.runway?.configured;
+
+      if (!runwayConfigured) {
+        toast({
+          title: 'Runway API Not Configured',
+          description: 'Set RUNWAY_API_KEY in your environment to enable AI video generation.',
+          variant: 'destructive',
+        });
+        setExperiments(prev => prev.map(exp =>
+          exp.id === experimentId
+            ? { ...exp, status: 'failed' as const, error: 'Runway API not configured' }
+            : exp
+        ));
+        setIsProcessing(false);
+        return;
+      }
+
+      if (!promptText.trim()) {
+        toast({
+          title: 'Prompt Required',
+          description: 'Please enter a scene description for AI video generation.',
+          variant: 'destructive',
+        });
+        setExperiments(prev => prev.map(exp =>
+          exp.id === experimentId
+            ? { ...exp, status: 'failed' as const, error: 'No prompt provided' }
+            : exp
+        ));
+        setIsProcessing(false);
+        return;
+      }
+
+      toast({
+        title: 'Generating AI Video',
+        description: 'Using Runway ML to create your video...',
+      });
+
+      try {
+        // Prepare the request
+        const aiVideoRequest: {
+          prompt: string;
+          duration: '5' | '10';
+          ratio: '16:9' | '9:16' | '1:1';
+          waitForCompletion: boolean;
+          image?: string;
+          imageIsUrl?: boolean;
+        } = {
+          prompt: promptText,
+          duration: videoDuration[0] <= 5 ? '5' : '10',
+          ratio: '9:16', // Vertical for mobile/shorts
+          waitForCompletion: false,
+        };
+
+        // Include reference image if provided
+        if (referenceImage) {
+          if (referenceImage.startsWith('http')) {
+            aiVideoRequest.image = referenceImage;
+            aiVideoRequest.imageIsUrl = true;
+          } else {
+            // Extract base64 from data URL
+            aiVideoRequest.image = referenceImage.split(',')[1] || referenceImage;
+            aiVideoRequest.imageIsUrl = false;
+          }
+        }
+
+        const result = await generateAIVideo.mutateAsync(aiVideoRequest);
+
+        if (result.success && result.jobId) {
+          // Update experiment with job ID
+          setExperiments(prev => prev.map(exp =>
+            exp.id === experimentId
+              ? { ...exp, id: result.jobId }
+              : exp
+          ));
+          setCurrentJobId(result.jobId);
+          setCurrentJobType('ai-video');
+
+          toast({
+            title: 'Processing',
+            description: 'AI video generation started with Runway ML. This may take 2-5 minutes...',
+          });
+        } else {
+          throw new Error(result.error || 'Failed to start AI video generation');
+        }
+      } catch (error) {
+        console.error('AI video generation error:', error);
+        setExperiments(prev => prev.map(exp =>
+          exp.id === experimentId
+            ? { ...exp, status: 'failed' as const, error: String(error) }
+            : exp
+        ));
+        setIsProcessing(false);
+        toast({
+          title: 'AI Video Generation Failed',
+          description: String(error),
+          variant: 'destructive',
+        });
+      }
+    } else {
+      // Simulate for other types (not yet implemented)
+      toast({
+        title: 'Experiment Started',
+        description: `Running ${activeTab} experiment (simulated)...`,
+      });
+
+      setTimeout(() => {
+        setExperiments(prev => prev.map(exp =>
+          exp.id === experimentId
+            ? { ...exp, status: 'completed' as const, outputUrl: '/placeholder-video.mp4' }
+            : exp
+        ));
+        setIsProcessing(false);
+        toast({
+          title: 'Note',
+          description: `${activeTab} is not yet integrated. Use AI Video Gen (Runway) or Talking Heads (D-ID/Hedra).`,
+        });
+      }, 2000);
+    }
   };
 
   const ProviderStatusBadge = ({ status }: { status: string }) => (
@@ -563,49 +1024,375 @@ export default function AnimationLab() {
                     />
                   </div>
 
-                  {/* Auto-generate prompt button */}
+                  {/* Generate Hollywood Script button */}
                   {(selectedGrammar.length > 0 || selectedVocabulary.length > 0 || selectedKanji.length > 0) && (
-                    <Button
-                      variant="outline"
-                      className="w-full border-green-500/50 text-green-400 hover:bg-green-500/10"
-                      onClick={() => setPromptText(generateScriptPrompt())}
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generate Script Prompt from Selection
-                    </Button>
+                    <div className="space-y-2">
+                      <Button
+                        variant="outline"
+                        className="w-full border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                        onClick={handleGenerateScript}
+                        disabled={isGeneratingScript}
+                      >
+                        {isGeneratingScript ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generating Script...
+                          </>
+                        ) : (
+                          <>
+                            <Film className="w-4 h-4 mr-2" />
+                            Generate Hollywood Script
+                          </>
+                        )}
+                      </Button>
+                      {generatedScript && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-xs text-gray-400 hover:text-white"
+                          onClick={() => setShowScriptPanel(!showScriptPanel)}
+                        >
+                          {showScriptPanel ? 'Hide Script' : 'Show Script'} ({generatedScript.scenes.length} scenes)
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Reference Image Upload */}
+            {/* Hollywood Script Preview Panel */}
+            {showScriptPanel && generatedScript && (
+              <Card className="bg-[#12121f] border-purple-500/30">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Film className="w-4 h-4 text-purple-400" />
+                      Generated Script
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                      onClick={() => setShowScriptPanel(false)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <CardDescription>
+                    Click on any dialogue line to use it as your speech text
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Title & Synopsis */}
+                  <div className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20">
+                    <h3 className="text-lg font-bold text-white">{generatedScript.title}</h3>
+                    <p className="text-purple-300 text-sm">{generatedScript.titleJapanese}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="secondary" className="bg-purple-500/20 text-purple-300">
+                        {generatedScript.genre}
+                      </Badge>
+                      <Badge variant="secondary" className="bg-blue-500/20 text-blue-300">
+                        {generatedScript.targetLevel}
+                      </Badge>
+                      <Badge variant="secondary" className="bg-gray-500/20 text-gray-300">
+                        ~{generatedScript.totalDuration}s
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-gray-400 mt-3">{generatedScript.synopsis}</p>
+                    <p className="text-xs text-gray-500 mt-1">{generatedScript.synopsisJapanese}</p>
+                  </div>
+
+                  {/* Characters */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Characters
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {generatedScript.characters.map((char) => (
+                        <div
+                          key={char.id}
+                          className="p-2 bg-white/5 rounded-lg border border-white/10"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-xs font-bold">
+                              {char.nameJapanese.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{char.name}</p>
+                              <p className="text-xs text-gray-500">{char.nameJapanese} • {char.role}</p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">{char.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Scenes */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <Layers className="w-4 h-4" />
+                      Scenes
+                    </h4>
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                      {generatedScript.scenes.map((scene) => (
+                        <div
+                          key={scene.sceneNumber}
+                          className="p-3 bg-white/5 rounded-lg border border-white/10"
+                        >
+                          {/* Scene Header */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <span className="text-xs text-purple-400 font-mono">
+                                SCENE {scene.sceneNumber}
+                              </span>
+                              <p className="text-sm font-medium text-gray-200">{scene.location}</p>
+                              <p className="text-xs text-gray-500">{scene.locationJapanese}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  useScriptForVideoGen(scene.sceneNumber - 1);
+                                }}
+                              >
+                                <Video className="w-3 h-3 mr-1" />
+                                Use for AI Video
+                              </Button>
+                              <Badge variant="secondary" className="bg-gray-500/20 text-gray-400 text-xs">
+                                {scene.timeOfDay}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {/* Scene Description */}
+                          <p className="text-xs text-gray-400 mb-3 italic">{scene.description}</p>
+
+                          {/* Lines */}
+                          <div className="space-y-2">
+                            {scene.lines.map((line, lineIdx) => (
+                              <div
+                                key={lineIdx}
+                                className={cn(
+                                  'p-2 rounded border transition-all',
+                                  line.type === 'dialogue'
+                                    ? 'bg-blue-500/10 border-blue-500/30 hover:border-blue-500/50 cursor-pointer'
+                                    : line.type === 'action'
+                                    ? 'bg-yellow-500/5 border-yellow-500/20'
+                                    : line.type === 'direction'
+                                    ? 'bg-gray-500/10 border-gray-500/20'
+                                    : 'bg-white/5 border-white/10'
+                                )}
+                                onClick={() => {
+                                  if (line.type === 'dialogue') {
+                                    useDialogueFromScript(line);
+                                  }
+                                }}
+                              >
+                                {line.type === 'dialogue' && (
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-bold text-blue-400 uppercase">
+                                      {generatedScript.characters.find(c => c.id === line.characterId)?.name || line.characterId}
+                                    </span>
+                                    {line.notes && (
+                                      <span className="text-xs text-gray-500 italic">
+                                        {line.notes}
+                                      </span>
+                                    )}
+                                    <Mic className="w-3 h-3 text-blue-400 ml-auto" />
+                                  </div>
+                                )}
+                                {line.type === 'action' && (
+                                  <span className="text-xs text-yellow-400 uppercase block mb-1">
+                                    ACTION
+                                  </span>
+                                )}
+                                {line.type === 'direction' && (
+                                  <span className="text-xs text-gray-400 uppercase block mb-1">
+                                    DIRECTION
+                                  </span>
+                                )}
+                                <p className={cn(
+                                  'text-sm',
+                                  line.type === 'dialogue' ? 'text-white' : 'text-gray-400 italic'
+                                )}>
+                                  {line.japanese}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-0.5">{line.english}</p>
+                                {line.duration && (
+                                  <span className="text-xs text-gray-600 mt-1 block">
+                                    ~{line.duration}s
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Learning Focus */}
+                          {scene.learningFocus && scene.learningFocus.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-white/10">
+                              <span className="text-xs text-green-400">Learning Focus: </span>
+                              <span className="text-xs text-gray-400">
+                                {scene.learningFocus.join(', ')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Learning Objectives */}
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <h4 className="text-sm font-medium text-green-400 mb-2 flex items-center gap-2">
+                      <GraduationCap className="w-4 h-4" />
+                      Learning Objectives
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {generatedScript.learningObjectives.grammar.length > 0 && (
+                        <div>
+                          <span className="text-purple-400">Grammar:</span>
+                          <p className="text-gray-400">{generatedScript.learningObjectives.grammar.join(', ')}</p>
+                        </div>
+                      )}
+                      {generatedScript.learningObjectives.vocabulary.length > 0 && (
+                        <div>
+                          <span className="text-blue-400">Vocabulary:</span>
+                          <p className="text-gray-400">{generatedScript.learningObjectives.vocabulary.join(', ')}</p>
+                        </div>
+                      )}
+                      {generatedScript.learningObjectives.kanji.length > 0 && (
+                        <div>
+                          <span className="text-orange-400">Kanji:</span>
+                          <p className="text-gray-400">{generatedScript.learningObjectives.kanji.join(', ')}</p>
+                        </div>
+                      )}
+                      {generatedScript.learningObjectives.culturalNotes && generatedScript.learningObjectives.culturalNotes.length > 0 && (
+                        <div>
+                          <span className="text-pink-400">Cultural Notes:</span>
+                          <p className="text-gray-400">{generatedScript.learningObjectives.culturalNotes.join(', ')}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                      onClick={() => useScriptForVideoGen(0)}
+                    >
+                      <Video className="w-4 h-4 mr-2" />
+                      Use for AI Video
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+                      onClick={() => {
+                        const allDialogue = getScriptDialogue(generatedScript);
+                        setSampleText(allDialogue);
+                        setActiveTab('talking-head');
+                        toast({
+                          title: 'All Dialogue Loaded',
+                          description: 'All dialogue from the script has been set as your speech text.',
+                        });
+                      }}
+                    >
+                      <Mic className="w-4 h-4 mr-2" />
+                      Use for Talking Head
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Casting - Talent Selection */}
             <Card className="bg-[#12121f] border-white/10">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-purple-400" />
-                  Reference Character
+                  <User className="w-4 h-4 text-purple-400" />
+                  Casting
                 </CardTitle>
                 <CardDescription>
-                  Upload a character image to animate (optional for some providers)
+                  Cast talent from the roster or upload your own character
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="flex gap-4">
+              <CardContent className="space-y-4">
+                {/* Talent Roster */}
+                <div>
+                  <Label className="text-xs text-gray-400 mb-2 block">Talent Roster - Cast Your Scene</Label>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {SAMPLE_CHARACTERS.map(char => (
+                      <button
+                        key={char.id}
+                        onClick={async () => {
+                          // Fetch the image and convert to data URL
+                          try {
+                            const response = await fetch(char.imageUrl);
+                            const blob = await response.blob();
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setReferenceImage(reader.result as string);
+                            };
+                            reader.readAsDataURL(blob);
+                            toast({
+                              title: 'Talent Cast',
+                              description: `${char.name} cast for your scene`,
+                            });
+                          } catch {
+                            // If fetch fails, just use the URL directly
+                            setReferenceImage(char.imageUrl);
+                          }
+                        }}
+                        className={cn(
+                          'p-2 rounded-xl border-2 transition-all hover:scale-105',
+                          referenceImage?.includes(char.id) || referenceImage === char.imageUrl
+                            ? 'border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50'
+                            : 'border-white/10 bg-white/5 hover:border-white/30'
+                        )}
+                      >
+                        <img
+                          src={char.imageUrl}
+                          alt={char.name}
+                          className="w-full aspect-square rounded-lg object-cover bg-white/10"
+                        />
+                        <p className="text-xs text-center mt-1.5 font-medium">{char.name}</p>
+                        <p className="text-[10px] text-gray-500 text-center">{char.description}</p>
+                        <div className="flex flex-wrap gap-1 justify-center mt-1">
+                          {char.tags?.slice(0, 1).map(tag => (
+                            <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Upload Custom */}
+                <div className="flex gap-4 pt-2 border-t border-white/10">
                   <div
                     onClick={() => fileInputRef.current?.click()}
                     className={cn(
-                      'w-32 h-32 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-colors',
-                      referenceImage
+                      'w-24 h-24 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-colors flex-shrink-0',
+                      referenceImage && !SAMPLE_CHARACTERS.some(c => referenceImage === c.imageUrl || referenceImage?.includes(c.id))
                         ? 'border-purple-500 bg-purple-500/10'
                         : 'border-white/10 hover:border-white/30 bg-white/5'
                     )}
                   >
-                    {referenceImage ? (
+                    {referenceImage && !SAMPLE_CHARACTERS.some(c => referenceImage === c.imageUrl) ? (
                       <img src={referenceImage} alt="Reference" className="w-full h-full object-cover rounded-lg" />
                     ) : (
                       <div className="text-center">
-                        <Upload className="w-6 h-6 text-gray-500 mx-auto mb-1" />
-                        <span className="text-xs text-gray-500">Upload</span>
+                        <Upload className="w-5 h-5 text-gray-500 mx-auto mb-1" />
+                        <span className="text-[10px] text-gray-500">Upload</span>
                       </div>
                     )}
                   </div>
@@ -617,31 +1404,22 @@ export default function AnimationLab() {
                     onChange={handleImageUpload}
                   />
                   <div className="flex-1">
-                    <Label className="text-xs text-gray-400">Or generate with AI</Label>
-                    <div className="mt-2 flex gap-2">
-                      {ANIME_STYLES.slice(0, 3).map(style => (
-                        <button
-                          key={style.id}
-                          onClick={() => setAnimeStyle(style.id)}
-                          className={cn(
-                            'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                            animeStyle === style.id
-                              ? 'bg-gradient-to-r text-white ' + style.preview
-                              : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                          )}
-                        >
-                          {style.name}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-3">
-                      <Input
-                        placeholder="Describe your character..."
-                        value={promptText}
-                        onChange={(e) => setPromptText(e.target.value)}
-                        className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-                      />
-                    </div>
+                    <Label className="text-xs text-gray-400">Upload your own portrait (Recommended)</Label>
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      Hedra works best with <span className="text-purple-400">real portrait photos</span> or high-quality character illustrations.
+                      Use a clear front-facing image with good lighting. PNG or JPG format.
+                    </p>
+                    {referenceImage && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2"
+                        onClick={() => setReferenceImage(null)}
+                      >
+                        <X className="w-3 h-3 mr-1" />
+                        Clear Selection
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -1047,20 +1825,26 @@ export default function AnimationLab() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="aspect-[9/16] bg-black/50 rounded-lg flex items-center justify-center border border-white/10">
+                <div className="aspect-[9/16] bg-black/50 rounded-lg flex items-center justify-center border border-white/10 overflow-hidden">
                   {isProcessing ? (
                     <div className="text-center">
                       <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-2" />
                       <p className="text-sm text-gray-400">Generating animation...</p>
+                      <p className="text-xs text-gray-500 mt-1">This may take 1-2 minutes</p>
                     </div>
-                  ) : experiments[0]?.status === 'completed' ? (
-                    <div className="text-center">
-                      <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                      <p className="text-sm text-gray-400">Animation ready</p>
-                      <Button size="sm" variant="outline" className="mt-3 border-white/10">
-                        <Play className="w-4 h-4 mr-1" />
-                        Play
-                      </Button>
+                  ) : experiments[0]?.status === 'completed' && experiments[0]?.outputUrl ? (
+                    <video
+                      src={experiments[0].outputUrl}
+                      controls
+                      autoPlay
+                      loop
+                      className="w-full h-full object-contain"
+                    />
+                  ) : experiments[0]?.status === 'failed' ? (
+                    <div className="text-center p-4">
+                      <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                      <p className="text-sm text-red-400">Generation failed</p>
+                      <p className="text-xs text-gray-500 mt-1">{experiments[0]?.error || 'Unknown error'}</p>
                     </div>
                   ) : (
                     <div className="text-center">
@@ -1069,6 +1853,31 @@ export default function AnimationLab() {
                     </div>
                   )}
                 </div>
+                {/* Download button when video is ready */}
+                {experiments[0]?.status === 'completed' && experiments[0]?.outputUrl && (
+                  <div className="mt-3 flex gap-2">
+                    <a
+                      href={experiments[0].outputUrl}
+                      download={`animation-${experiments[0].id}.mp4`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1"
+                    >
+                      <Button size="sm" variant="outline" className="w-full border-white/10">
+                        <Download className="w-4 h-4 mr-1" />
+                        Download
+                      </Button>
+                    </a>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-white/10"
+                      onClick={() => window.open(experiments[0].outputUrl, '_blank')}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
