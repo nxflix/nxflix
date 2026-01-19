@@ -7,4 +7,5 @@ export * from './quiz.js';
 export * from './reading.js';
 export * from './sideshift.js';
 export * from './study.js';
+export * from './video.js';
 export * from './vocabulary.js';

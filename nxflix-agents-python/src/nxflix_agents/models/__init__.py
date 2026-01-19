@@ -35,6 +35,19 @@ from .study import (
     SessionRequest,
     SessionCompleteRequest,
 )
+from .video import (
+    VideoProject,
+    VideoScript,
+    VideoSubtitle,
+    FuriganaAnnotation,
+    CharacterStyle,
+    VideoStyle,
+    VideoStatus,
+    VideoCreateRequest,
+    ScriptGenerateRequest,
+    TTSVoice,
+    VideoStylesResponse,
+)
 
 __all__ = [
     "ContentType",
@@ -73,4 +86,15 @@ __all__ = [
     "RecommendationRequest",
     "SessionRequest",
     "SessionCompleteRequest",
+    "VideoProject",
+    "VideoScript",
+    "VideoSubtitle",
+    "FuriganaAnnotation",
+    "CharacterStyle",
+    "VideoStyle",
+    "VideoStatus",
+    "VideoCreateRequest",
+    "ScriptGenerateRequest",
+    "TTSVoice",
+    "VideoStylesResponse",
 ]

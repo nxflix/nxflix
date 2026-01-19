@@ -9,3 +9,4 @@ export { readingRouter } from './reading.js';
 export { ttsRouter } from './tts.js';
 export { sideshiftRouter } from './sideshift.js';
 export { focusRouter } from './focus.js';
+export { videoRouter } from './video.js';

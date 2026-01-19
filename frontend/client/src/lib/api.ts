@@ -18,6 +18,12 @@ import type {
   FocusContent,
   FocusDailyRequest,
   FocusCompleteResponse,
+  VideoProject,
+  VideoScript,
+  VideoCreateRequest,
+  ScriptGenerateRequest,
+  VideoStylesResponse,
+  VideoVoice,
 } from './api-types';
 
 // ============================================================================
@@ -271,6 +277,110 @@ export function useFocusComplete() {
     mutationFn: async ({ contentId, userId, quality = 4 }: { contentId: string; userId: string; quality?: number }) => {
       const res = await apiRequest('POST', `/api/focus/${contentId}/complete`, { userId, quality });
       return res.json() as Promise<FocusCompleteResponse>;
+    },
+  });
+}
+
+// ============================================================================
+// Video Hooks
+// ============================================================================
+
+export function useVideoProjects(userId?: string) {
+  const params = userId ? `?userId=${userId}` : '';
+  return useQuery<{ projects: VideoProject[]; count: number }>({
+    queryKey: ['/api/video', userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/video${params}`);
+      if (!res.ok) throw new Error('Failed to fetch video projects');
+      return res.json();
+    },
+  });
+}
+
+export function useVideoProject(id: string) {
+  return useQuery<{ project: VideoProject }>({
+    queryKey: ['/api/video', id],
+    queryFn: async () => {
+      const res = await fetch(`/api/video/${id}`);
+      if (!res.ok) throw new Error('Failed to fetch video project');
+      return res.json();
+    },
+    enabled: !!id,
+  });
+}
+
+export function useVideoProjectStatus(id: string) {
+  return useQuery<{ status: string; progress: number; error?: string }>({
+    queryKey: ['/api/video', id, 'status'],
+    queryFn: async () => {
+      const res = await fetch(`/api/video/${id}/status`);
+      if (!res.ok) throw new Error('Failed to fetch video status');
+      return res.json();
+    },
+    enabled: !!id,
+    refetchInterval: (query) => {
+      // Poll while generating
+      const data = query.state.data;
+      return data?.status === 'generating' ? 2000 : false;
+    },
+  });
+}
+
+export function useCreateVideo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (request: VideoCreateRequest) => {
+      const res = await apiRequest('POST', '/api/video/create', request);
+      return res.json() as Promise<{ project: VideoProject }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/video'] });
+    },
+  });
+}
+
+export function useGenerateScript() {
+  return useMutation({
+    mutationFn: async (request: ScriptGenerateRequest) => {
+      const res = await apiRequest('POST', '/api/video/script', request);
+      return res.json() as Promise<{ script: VideoScript }>;
+    },
+  });
+}
+
+export function useDeleteVideo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest('DELETE', `/api/video/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/video'] });
+    },
+  });
+}
+
+export function useVideoStyles() {
+  return useQuery<VideoStylesResponse>({
+    queryKey: ['/api/video/meta/styles'],
+    queryFn: async () => {
+      const res = await fetch('/api/video/meta/styles');
+      if (!res.ok) throw new Error('Failed to fetch video styles');
+      return res.json();
+    },
+  });
+}
+
+export function useVideoVoices() {
+  return useQuery<{ voices: VideoVoice[] }>({
+    queryKey: ['/api/video/meta/voices'],
+    queryFn: async () => {
+      const res = await fetch('/api/video/meta/voices');
+      if (!res.ok) throw new Error('Failed to fetch video voices');
+      return res.json();
     },
   });
 }

@@ -21,6 +21,7 @@ import {
   ListeningStudy,
 } from "@/pages/study";
 import Subscription from "@/pages/subscription";
+import VideoStudio from "@/pages/video-studio";
 
 function Router() {
   return (
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/discover" component={Discover} />
       <Route path="/focus" component={Focus} />
       <Route path="/create" component={Creator} />
+      <Route path="/video" component={VideoStudio} />
       <Route path="/watch" component={Watcher} />
       <Route path="/study" component={StudyDashboard} />
       <Route path="/study/grammar" component={GrammarStudy} />

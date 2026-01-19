@@ -262,3 +262,105 @@ export interface FocusCompleteResponse {
     averageTimeSeconds: number;
   };
 }
+
+// ============================================================================
+// Video Types
+// ============================================================================
+
+export type CharacterStyle =
+  | 'anime_female'
+  | 'anime_male'
+  | 'realistic_female'
+  | 'realistic_male'
+  | 'chibi'
+  | 'mascot'
+  | 'none';
+
+export type VideoStyle =
+  | 'classroom'
+  | 'cafe'
+  | 'nature'
+  | 'abstract'
+  | 'manga';
+
+export type VideoStatus = 'draft' | 'generating' | 'ready' | 'failed';
+
+export interface FuriganaAnnotation {
+  word: string;
+  reading: string;
+  startIndex: number;
+}
+
+export interface VideoSubtitle {
+  id: string;
+  startTime: number;
+  endTime: number;
+  text: string;
+  reading?: string;
+  furigana: FuriganaAnnotation[];
+  translation?: string;
+}
+
+export interface VideoScript {
+  id: string;
+  title: string;
+  description?: string;
+  subtitles: VideoSubtitle[];
+  totalDurationSeconds: number;
+  targetVocabulary: string[];
+  grammarPoints: string[];
+}
+
+export interface VideoProject {
+  id: string;
+  userId: string;
+  prompt: string;
+  script: VideoScript;
+  characterStyle: CharacterStyle;
+  videoStyle: VideoStyle;
+  voice: string;
+  status: VideoStatus;
+  audioUrl?: string;
+  audioBase64?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  errorMessage?: string;
+  progress: number;
+}
+
+export interface VideoCreateRequest {
+  prompt: string;
+  userId: string;
+  characterStyle?: CharacterStyle;
+  videoStyle?: VideoStyle;
+  voice?: string;
+  maxDurationSeconds?: number;
+}
+
+export interface ScriptGenerateRequest {
+  prompt: string;
+  maxDurationSeconds?: number;
+}
+
+export interface VideoStyleOption {
+  id: string;
+  name: string;
+  description: string;
+  imagePath?: string;
+  gradient?: string;
+}
+
+export interface VideoStylesResponse {
+  characters: VideoStyleOption[];
+  backgrounds: VideoStyleOption[];
+}
+
+export interface VideoVoice {
+  id: string;
+  name: string;
+  gender: string;
+  description: string;
+  provider: string;
+}
