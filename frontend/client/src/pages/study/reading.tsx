@@ -155,14 +155,18 @@ export default function ReadingStudy() {
                       <div className="mt-6 pt-4 border-t">
                         <p className="text-xs text-muted-foreground mb-2">Key Vocabulary</p>
                         <div className="flex flex-wrap gap-2">
-                          {currentPassage.keyVocabulary.map((word, i) => (
-                            <span
-                              key={i}
-                              className="text-sm bg-primary/10 text-primary px-2 py-1 rounded"
-                            >
-                              {word}
-                            </span>
-                          ))}
+                          {currentPassage.keyVocabulary.map((item, i) => {
+                            // Handle both string and object formats from API
+                            const word = typeof item === 'string' ? item : (item as { word: string }).word;
+                            return (
+                              <span
+                                key={i}
+                                className="text-sm bg-primary/10 text-primary px-2 py-1 rounded"
+                              >
+                                {word}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

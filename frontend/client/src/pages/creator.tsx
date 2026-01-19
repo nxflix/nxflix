@@ -480,11 +480,15 @@ function ReadingPreview({ passage }: { passage: ReadingPassage }) {
         </p>
         {passage.keyVocabulary.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {passage.keyVocabulary.map((word, i) => (
-              <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                {word}
-              </span>
-            ))}
+            {passage.keyVocabulary.map((item, i) => {
+              // Handle both string and object formats from API
+              const word = typeof item === 'string' ? item : (item as { word: string }).word;
+              return (
+                <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                  {word}
+                </span>
+              );
+            })}
           </div>
         )}
       </div>

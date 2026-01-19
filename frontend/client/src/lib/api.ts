@@ -64,7 +64,9 @@ export function useGenerateKanji() {
   return useMutation({
     mutationFn: async (request: GenerateKanjiRequest) => {
       const res = await apiRequest('POST', '/api/kanji/generate', request);
-      return res.json() as Promise<KanjiItem[]>;
+      const data = await res.json();
+      // API returns { status, kanji: [...] } or just the array
+      return (data.kanji || data) as KanjiItem[];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/kanji'] });
@@ -100,7 +102,9 @@ export function useGenerateVocabulary() {
   return useMutation({
     mutationFn: async (request: GenerateVocabularyRequest) => {
       const res = await apiRequest('POST', '/api/vocabulary/generate', request);
-      return res.json() as Promise<VocabularyItem[]>;
+      const data = await res.json();
+      // API returns { status, vocabulary: [...] } or just the array
+      return (data.vocabulary || data) as VocabularyItem[];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/vocabulary'] });
@@ -124,7 +128,9 @@ export function useGenerateReading() {
   return useMutation({
     mutationFn: async (request: GenerateReadingRequest) => {
       const res = await apiRequest('POST', '/api/reading/generate', request);
-      return res.json() as Promise<ReadingPassage>;
+      const data = await res.json();
+      // API returns { status, reading: {...} } or just the object
+      return (data.reading || data) as ReadingPassage;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reading'] });
@@ -148,7 +154,9 @@ export function useGenerateListening() {
   return useMutation({
     mutationFn: async (request: GenerateListeningRequest) => {
       const res = await apiRequest('POST', '/api/listening/generate', request);
-      return res.json() as Promise<ListeningItem>;
+      const data = await res.json();
+      // API returns { status, listening: {...} } or just the object
+      return (data.listening || data) as ListeningItem;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/listening'] });
@@ -164,7 +172,9 @@ export function useGenerateQuiz() {
   return useMutation({
     mutationFn: async (request: GenerateQuizRequest) => {
       const res = await apiRequest('POST', '/api/quiz/generate', request);
-      return res.json() as Promise<Quiz>;
+      const data = await res.json();
+      // API returns { status, quiz: {...} } or just the object
+      return (data.quiz || data) as Quiz;
     },
   });
 }
