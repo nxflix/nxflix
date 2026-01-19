@@ -79,21 +79,27 @@ ttsRouter.post('/synthesize-dialogue', async (req: Request, res: Response) => {
 });
 
 // GET /api/tts/voices - Get available voices
-ttsRouter.get('/voices', (req: Request, res: Response) => {
+ttsRouter.get('/voices', async (req: Request, res: Response) => {
   const provider = req.query.provider as TTSProvider | undefined;
 
-  if (provider) {
-    const voices = ttsService.getAvailableVoices(provider);
-    res.json({ provider, voices });
-  } else {
-    // Return all providers' voices
-    res.json({
-      providers: {
-        google: JapaneseVoices.google,
-        openai: JapaneseVoices.openai,
-        elevenlabs: JapaneseVoices.elevenlabs,
-      },
-    });
+  try {
+    if (provider) {
+      const voices = await ttsService.getAvailableVoicesAsync(provider);
+      res.json({ provider, voices });
+    } else {
+      // Return all providers' voices (fetch ElevenLabs async)
+      const elevenLabsVoices = await ttsService.getAvailableVoicesAsync('elevenlabs');
+      res.json({
+        providers: {
+          google: JapaneseVoices.google,
+          openai: JapaneseVoices.openai,
+          elevenlabs: elevenLabsVoices,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching voices:', error);
+    res.status(500).json({ error: String(error) });
   }
 });
 

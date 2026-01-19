@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { settings } from '../config.js';
 
 /**
@@ -8,9 +9,18 @@ export const TTSProvider = z.enum(['google', 'openai', 'elevenlabs']);
 export type TTSProvider = z.infer<typeof TTSProvider>;
 
 /**
- * Available Japanese voices by provider.
+ * Voice info type.
  */
-export const JapaneseVoices = {
+export interface VoiceInfo {
+  name: string;
+  gender: string;
+  description: string;
+}
+
+/**
+ * Available Japanese voices by provider (static voices for Google/OpenAI).
+ */
+export const JapaneseVoices: Record<string, Record<string, VoiceInfo>> = {
   google: {
     'ja-JP-Neural2-B': { name: 'ja-JP-Neural2-B', gender: 'female', description: 'Natural female voice' },
     'ja-JP-Neural2-C': { name: 'ja-JP-Neural2-C', gender: 'male', description: 'Natural male voice' },
@@ -26,10 +36,8 @@ export const JapaneseVoices = {
     onyx: { name: 'onyx', gender: 'male', description: 'Deep male voice' },
     nova: { name: 'nova', gender: 'female', description: 'Friendly female voice' },
   },
-  elevenlabs: {
-    yuki: { name: 'yuki', gender: 'female', description: 'Japanese female' },
-  },
-} as const;
+  elevenlabs: {}, // Populated dynamically from API
+};
 
 /**
  * TTS synthesis options.
@@ -68,12 +76,87 @@ export class TTSService {
   private googleApiKey?: string;
   private openaiApiKey?: string;
   private elevenLabsApiKey?: string;
+  private elevenLabsClient?: ElevenLabsClient;
+  private elevenLabsVoicesCache: Record<string, VoiceInfo> | null = null;
+  private elevenLabsVoicesCacheTime: number = 0;
+  private static CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(options?: { provider?: TTSProvider }) {
     this.provider = options?.provider ?? (settings.ttsProvider as TTSProvider) ?? 'openai';
     this.googleApiKey = settings.googleApiKey;
     this.openaiApiKey = settings.openaiApiKey;
     this.elevenLabsApiKey = settings.elevenLabsApiKey;
+
+    // Initialize ElevenLabs client if API key is available
+    if (this.elevenLabsApiKey) {
+      this.elevenLabsClient = new ElevenLabsClient({
+        apiKey: this.elevenLabsApiKey,
+      });
+    }
+  }
+
+  /**
+   * Fetch available voices from ElevenLabs API using official SDK.
+   */
+  async fetchElevenLabsVoices(): Promise<Record<string, VoiceInfo>> {
+    if (!this.elevenLabsClient) {
+      console.warn('[TTS] ElevenLabs client not initialized (API key not configured)');
+      return {};
+    }
+
+    // Return cached voices if still valid
+    if (this.elevenLabsVoicesCache && Date.now() - this.elevenLabsVoicesCacheTime < TTSService.CACHE_TTL_MS) {
+      return this.elevenLabsVoicesCache;
+    }
+
+    try {
+      console.log('[TTS] Fetching ElevenLabs voices using SDK...');
+      const response = await this.elevenLabsClient.voices.search();
+      const voices: Record<string, VoiceInfo> = {};
+
+      for (const voice of response.voices || []) {
+        voices[voice.voiceId] = {
+          name: voice.name || 'Unknown',
+          gender: voice.labels?.gender || 'unknown',
+          description: voice.labels?.description || voice.description || voice.name || 'Unknown',
+        };
+      }
+
+      // Cache the voices
+      this.elevenLabsVoicesCache = voices;
+      this.elevenLabsVoicesCacheTime = Date.now();
+
+      console.log(`[TTS] Found ${Object.keys(voices).length} ElevenLabs voices`);
+      return voices;
+    } catch (error) {
+      console.error('[TTS] Failed to fetch ElevenLabs voices:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Get the default ElevenLabs voice ID.
+   */
+  async getDefaultElevenLabsVoice(): Promise<string | null> {
+    const voices = await this.fetchElevenLabsVoices();
+    const voiceIds = Object.keys(voices);
+
+    if (voiceIds.length === 0) {
+      return null;
+    }
+
+    // Try to find a Japanese voice or any multilingual voice
+    for (const [voiceId, info] of Object.entries(voices)) {
+      const lowerName = info.name.toLowerCase();
+      const lowerDesc = info.description.toLowerCase();
+      if (lowerName.includes('japanese') || lowerName.includes('multilingual') ||
+          lowerDesc.includes('japanese') || lowerDesc.includes('multilingual')) {
+        return voiceId;
+      }
+    }
+
+    // Return the first available voice
+    return voiceIds[0];
   }
 
   /**
@@ -84,8 +167,27 @@ export class TTSService {
     options?: TTSSynthesizeOptions
   ): Promise<TTSSynthesizeResult> {
     const provider = options?.provider ?? this.provider;
-    const voice = options?.voice ?? this.getDefaultVoice(provider);
+    let voice = options?.voice;
     const speed = options?.speed ?? 1.0;
+
+    // Resolve voice for ElevenLabs if not specified or if it's an invalid ID
+    if (provider === 'elevenlabs') {
+      if (!voice) {
+        voice = await this.getDefaultElevenLabsVoice() ?? undefined;
+      } else {
+        // Check if the voice ID is valid
+        const voices = await this.fetchElevenLabsVoices();
+        if (!voices[voice]) {
+          console.warn(`[TTS] ElevenLabs voice "${voice}" not found, using default`);
+          voice = await this.getDefaultElevenLabsVoice() ?? undefined;
+        }
+      }
+      if (!voice) {
+        throw new Error('No ElevenLabs voices available. Please check your API key and account.');
+      }
+    } else {
+      voice = voice ?? this.getDefaultVoice(provider);
+    }
 
     switch (provider) {
       case 'openai':
@@ -120,10 +222,25 @@ export class TTSService {
   }
 
   /**
-   * Get available voices for a provider.
+   * Get available voices for a provider (sync version for Google/OpenAI).
    */
-  getAvailableVoices(provider?: TTSProvider): Record<string, { name: string; gender: string; description: string }> {
+  getAvailableVoices(provider?: TTSProvider): Record<string, VoiceInfo> {
     const p = provider ?? this.provider;
+    if (p === 'elevenlabs') {
+      // Return cached voices or empty if not fetched yet
+      return this.elevenLabsVoicesCache ?? {};
+    }
+    return JapaneseVoices[p] ?? {};
+  }
+
+  /**
+   * Get available voices for a provider (async version, fetches ElevenLabs voices).
+   */
+  async getAvailableVoicesAsync(provider?: TTSProvider): Promise<Record<string, VoiceInfo>> {
+    const p = provider ?? this.provider;
+    if (p === 'elevenlabs') {
+      return this.fetchElevenLabsVoices();
+    }
     return JapaneseVoices[p] ?? {};
   }
 
@@ -246,52 +363,42 @@ export class TTSService {
   }
 
   /**
-   * Synthesize with ElevenLabs.
+   * Synthesize with ElevenLabs using official SDK.
    */
   private async synthesizeWithElevenLabs(
     text: string,
     voice: string,
     speed: number
   ): Promise<TTSSynthesizeResult> {
-    if (!this.elevenLabsApiKey) {
-      throw new Error('ElevenLabs API key not configured');
+    if (!this.elevenLabsClient) {
+      throw new Error('ElevenLabs client not initialized (API key not configured)');
     }
 
-    // ElevenLabs requires voice ID, this is a placeholder
-    const voiceId = voice;
+    console.log(`[TTS] Synthesizing ${text.length} characters with ElevenLabs (voice: ${voice})`);
 
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-      {
-        method: 'POST',
-        headers: {
-          Accept: 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': this.elevenLabsApiKey,
-        },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_multilingual_v2',
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            style: 0.0,
-            use_speaker_boost: true,
-          },
-        }),
-      }
-    );
+    const audio = await this.elevenLabsClient.textToSpeech.convert(voice, {
+      text,
+      modelId: 'eleven_multilingual_v2',
+      outputFormat: 'mp3_44100_128',
+    });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`ElevenLabs TTS error: ${error}`);
+    // Convert the ReadableStream to a Buffer
+    const chunks: Uint8Array[] = [];
+    const reader = audio.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBase64 = Buffer.from(arrayBuffer).toString('base64');
+    const audioBuffer = Buffer.concat(chunks);
+    const audioBase64 = audioBuffer.toString('base64');
 
     // Estimate duration
     const estimatedDuration = (text.length * 0.15) / speed;
+
+    console.log(`[TTS] Successfully generated ${audioBuffer.length} bytes of ElevenLabs audio`);
 
     return {
       audioBase64,

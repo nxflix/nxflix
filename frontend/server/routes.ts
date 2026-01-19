@@ -68,6 +68,16 @@ export async function registerRoutes(
     res.status((result as any).status || 200).json(result);
   });
 
+  app.post("/api/grammar/generate", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/grammar/generate", "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/grammar/save", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/grammar/save", "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
   // ============================================================================
   // Kanji Routes (proxy to TypeScript agent)
   // ============================================================================
@@ -84,6 +94,11 @@ export async function registerRoutes(
 
   app.post("/api/kanji/generate", async (req: Request, res: Response) => {
     const result = await proxyToAgent(AGENT_TS_URL, "/api/kanji/generate", "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/kanji/save", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/kanji/save", "POST", req.body);
     res.status((result as any).status || 200).json(result);
   });
 
@@ -106,6 +121,11 @@ export async function registerRoutes(
     res.status((result as any).status || 200).json(result);
   });
 
+  app.post("/api/vocabulary/save", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/vocabulary/save", "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
   // ============================================================================
   // Reading Routes (proxy to TypeScript agent)
   // ============================================================================
@@ -116,6 +136,11 @@ export async function registerRoutes(
 
   app.post("/api/reading/generate", async (req: Request, res: Response) => {
     const result = await proxyToAgent(AGENT_TS_URL, "/api/reading/generate", "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/reading/save", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/reading/save", "POST", req.body);
     res.status((result as any).status || 200).json(result);
   });
 
@@ -130,6 +155,11 @@ export async function registerRoutes(
   app.post("/api/listening/generate", async (req: Request, res: Response) => {
     // Longer timeout for listening generation (LLM + TTS can take 2+ minutes)
     const result = await proxyToAgent(AGENT_TS_URL, "/api/listening/generate", "POST", req.body, 180000);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/listening/save", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/listening/save", "POST", req.body);
     res.status((result as any).status || 200).json(result);
   });
 

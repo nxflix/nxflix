@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
 import {
+  useGenerateGrammar,
   useGenerateKanji,
   useGenerateVocabulary,
   useGenerateReading,
   useGenerateListening,
+  useSaveGrammar,
   useSaveKanji,
   useSaveVocabulary,
   useSaveReading,
@@ -15,6 +17,7 @@ import type {
   ReadingPassageType,
   ListeningType,
   PartOfSpeech,
+  GrammarPoint,
   KanjiItem,
   VocabularyItem,
   ReadingPassage,
@@ -52,29 +55,30 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 
 type GeneratedContent =
+  | { type: 'grammar'; data: GrammarPoint[] }
   | { type: 'kanji'; data: KanjiItem[] }
   | { type: 'vocabulary'; data: VocabularyItem[] }
   | { type: 'reading'; data: ReadingPassage }
   | { type: 'listening'; data: ListeningItem };
 
-const contentTypeInfo: Record<Exclude<ContentType, 'grammar'>, { icon: typeof BookOpen; label: string; color: string; description: string }> = {
-  vocabulary: {
-    icon: Languages,
-    label: 'Vocabulary',
-    color: 'text-green-500',
-    description: 'Generate JLPT N1 vocabulary sets with examples',
-  },
+const contentTypeInfo: Record<ContentType, { icon: typeof BookOpen; label: string; color: string; description: string }> = {
   kanji: {
     icon: PenTool,
     label: 'Kanji',
     color: 'text-purple-500',
     description: 'Generate kanji cards with readings and compounds',
   },
-  reading: {
-    icon: FileText,
-    label: 'Reading',
-    color: 'text-orange-500',
-    description: 'Create reading passages with comprehension questions',
+  vocabulary: {
+    icon: Languages,
+    label: 'Vocabulary',
+    color: 'text-green-500',
+    description: 'Generate JLPT N1 vocabulary sets with examples',
+  },
+  grammar: {
+    icon: BookOpen,
+    label: 'Grammar',
+    color: 'text-blue-500',
+    description: 'Generate JLPT N1 grammar points with examples',
   },
   listening: {
     icon: Headphones,
@@ -82,16 +86,23 @@ const contentTypeInfo: Record<Exclude<ContentType, 'grammar'>, { icon: typeof Bo
     color: 'text-pink-500',
     description: 'Generate listening exercises with TTS audio',
   },
+  reading: {
+    icon: FileText,
+    label: 'Reading',
+    color: 'text-orange-500',
+    description: 'Create reading passages with comprehension questions',
+  },
 };
 
 export default function Creator() {
-  const [activeTab, setActiveTab] = useState<Exclude<ContentType, 'grammar'>>('vocabulary');
+  const [activeTab, setActiveTab] = useState<ContentType>('kanji');
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [shareContent, setShareContent] = useState(false);
   const { toast } = useToast();
 
   // Form states
+  const [grammarForm, setGrammarForm] = useState({ topic: '', count: 5 });
   const [vocabForm, setVocabForm] = useState({ topic: '', count: 5 });
   const [kanjiForm, setKanjiForm] = useState({ characters: '', count: 5 });
   const [readingForm, setReadingForm] = useState<{ topic: string; passageType: ReadingPassageType }>({
@@ -106,24 +117,28 @@ export default function Creator() {
   });
 
   // Generate mutations
+  const generateGrammar = useGenerateGrammar();
   const generateKanji = useGenerateKanji();
   const generateVocabulary = useGenerateVocabulary();
   const generateReading = useGenerateReading();
   const generateListening = useGenerateListening();
 
   // Save mutations
+  const saveGrammar = useSaveGrammar();
   const saveKanji = useSaveKanji();
   const saveVocabulary = useSaveVocabulary();
   const saveReading = useSaveReading();
   const saveListening = useSaveListening();
 
   const isGenerating =
+    generateGrammar.isPending ||
     generateKanji.isPending ||
     generateVocabulary.isPending ||
     generateReading.isPending ||
     generateListening.isPending;
 
   const isSaving =
+    saveGrammar.isPending ||
     saveKanji.isPending ||
     saveVocabulary.isPending ||
     saveReading.isPending ||
@@ -135,6 +150,9 @@ export default function Creator() {
     try {
       const saveOptions = { isPublic: shareContent };
       switch (generatedContent.type) {
+        case 'grammar':
+          await saveGrammar.mutateAsync({ grammar: generatedContent.data, ...saveOptions });
+          break;
         case 'kanji':
           await saveKanji.mutateAsync({ kanji: generatedContent.data, ...saveOptions });
           break;
@@ -169,6 +187,15 @@ export default function Creator() {
     setIsSaved(false);
     try {
       switch (activeTab) {
+        case 'grammar':
+          const grammarResult = await generateGrammar.mutateAsync({
+            topic: grammarForm.topic || undefined,
+            count: grammarForm.count,
+          });
+          setGeneratedContent({ type: 'grammar', data: grammarResult });
+          toast({ title: 'Success', description: `Generated ${grammarResult.length} grammar points` });
+          break;
+
         case 'vocabulary':
           const vocabResult = await generateVocabulary.mutateAsync({
             topic: vocabForm.topic || undefined,
@@ -234,7 +261,7 @@ export default function Creator() {
           {/* Left Panel: Generation Form */}
           <Card className="p-6">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-              <TabsList className="grid grid-cols-4 w-full mb-6">
+              <TabsList className="grid grid-cols-5 w-full mb-6">
                 {Object.entries(contentTypeInfo).map(([type, info]) => (
                   <TabsTrigger key={type} value={type} className="gap-1">
                     <info.icon className={`w-4 h-4 ${info.color}`} />
@@ -242,40 +269,6 @@ export default function Creator() {
                   </TabsTrigger>
                 ))}
               </TabsList>
-
-              {/* Vocabulary Form */}
-              <TabsContent value="vocabulary" className="space-y-4">
-                <p className="text-sm text-muted-foreground">{contentTypeInfo.vocabulary.description}</p>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="vocab-topic">Topic (optional)</Label>
-                    <Input
-                      id="vocab-topic"
-                      placeholder="e.g., business, technology, emotions"
-                      value={vocabForm.topic}
-                      onChange={(e) => setVocabForm((f) => ({ ...f, topic: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="vocab-count">Number of words</Label>
-                    <Select
-                      value={vocabForm.count.toString()}
-                      onValueChange={(v) => setVocabForm((f) => ({ ...f, count: parseInt(v) }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[3, 5, 10, 15, 20].map((n) => (
-                          <SelectItem key={n} value={n.toString()}>
-                            {n} words
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </TabsContent>
 
               {/* Kanji Form */}
               <TabsContent value="kanji" className="space-y-4">
@@ -314,33 +307,68 @@ export default function Creator() {
                 </div>
               </TabsContent>
 
-              {/* Reading Form */}
-              <TabsContent value="reading" className="space-y-4">
-                <p className="text-sm text-muted-foreground">{contentTypeInfo.reading.description}</p>
+              {/* Vocabulary Form */}
+              <TabsContent value="vocabulary" className="space-y-4">
+                <p className="text-sm text-muted-foreground">{contentTypeInfo.vocabulary.description}</p>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="reading-topic">Topic (optional)</Label>
+                    <Label htmlFor="vocab-topic">Topic (optional)</Label>
                     <Input
-                      id="reading-topic"
-                      placeholder="e.g., environment, culture, science"
-                      value={readingForm.topic}
-                      onChange={(e) => setReadingForm((f) => ({ ...f, topic: e.target.value }))}
+                      id="vocab-topic"
+                      placeholder="e.g., business, technology, emotions"
+                      value={vocabForm.topic}
+                      onChange={(e) => setVocabForm((f) => ({ ...f, topic: e.target.value }))}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="reading-type">Passage Type</Label>
+                    <Label htmlFor="vocab-count">Number of words</Label>
                     <Select
-                      value={readingForm.passageType}
-                      onValueChange={(v: ReadingPassageType) => setReadingForm((f) => ({ ...f, passageType: v }))}
+                      value={vocabForm.count.toString()}
+                      onValueChange={(v) => setVocabForm((f) => ({ ...f, count: parseInt(v) }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="short">Short (~200 chars)</SelectItem>
-                        <SelectItem value="medium">Medium (~500 chars)</SelectItem>
-                        <SelectItem value="long">Long (~1000 chars)</SelectItem>
-                        <SelectItem value="comparison">Comparison (2 passages)</SelectItem>
+                        {[3, 5, 10, 15, 20].map((n) => (
+                          <SelectItem key={n} value={n.toString()}>
+                            {n} words
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Grammar Form */}
+              <TabsContent value="grammar" className="space-y-4">
+                <p className="text-sm text-muted-foreground">{contentTypeInfo.grammar.description}</p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="grammar-topic">Topic (optional)</Label>
+                    <Input
+                      id="grammar-topic"
+                      placeholder="e.g., conditionals, causative, honorifics"
+                      value={grammarForm.topic}
+                      onChange={(e) => setGrammarForm((f) => ({ ...f, topic: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="grammar-count">Number of grammar points</Label>
+                    <Select
+                      value={grammarForm.count.toString()}
+                      onValueChange={(v) => setGrammarForm((f) => ({ ...f, count: parseInt(v) }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[3, 5, 10, 15, 20].map((n) => (
+                          <SelectItem key={n} value={n.toString()}>
+                            {n} points
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -410,6 +438,39 @@ export default function Creator() {
                     <p className="text-xs text-muted-foreground mt-1">
                       Select which AI service generates the audio
                     </p>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Reading Form */}
+              <TabsContent value="reading" className="space-y-4">
+                <p className="text-sm text-muted-foreground">{contentTypeInfo.reading.description}</p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="reading-topic">Topic (optional)</Label>
+                    <Input
+                      id="reading-topic"
+                      placeholder="e.g., environment, culture, science"
+                      value={readingForm.topic}
+                      onChange={(e) => setReadingForm((f) => ({ ...f, topic: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="reading-type">Passage Type</Label>
+                    <Select
+                      value={readingForm.passageType}
+                      onValueChange={(v: ReadingPassageType) => setReadingForm((f) => ({ ...f, passageType: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="short">Short (~200 chars)</SelectItem>
+                        <SelectItem value="medium">Medium (~500 chars)</SelectItem>
+                        <SelectItem value="long">Long (~1000 chars)</SelectItem>
+                        <SelectItem value="comparison">Comparison (2 passages)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </TabsContent>
@@ -523,6 +584,9 @@ export default function Creator() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-4 overflow-auto max-h-[450px]"
                 >
+                  {generatedContent.type === 'grammar' && (
+                    <GrammarPreview items={generatedContent.data} />
+                  )}
                   {generatedContent.type === 'vocabulary' && (
                     <VocabularyPreview items={generatedContent.data} />
                   )}
@@ -563,6 +627,36 @@ export default function Creator() {
 }
 
 // Preview Components
+function GrammarPreview({ items }: { items: GrammarPoint[] }) {
+  return (
+    <div className="space-y-3">
+      {items.map((item) => (
+        <Card key={item.id} className="p-3">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-lg font-bold">{item.pattern}</p>
+              <p className="text-sm text-muted-foreground">{item.meaning}</p>
+            </div>
+            <span className="text-xs bg-blue-500/10 text-blue-500 px-2 py-1 rounded">
+              {item.level}
+            </span>
+          </div>
+          {item.example && (
+            <div className="mt-2 text-xs border-l-2 border-blue-500/30 pl-2">
+              <p className="text-foreground">{item.example}</p>
+            </div>
+          )}
+          {item.explanation && (
+            <p className="mt-2 text-xs text-muted-foreground italic">
+              {item.explanation}
+            </p>
+          )}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function VocabularyPreview({ items }: { items: VocabularyItem[] }) {
   return (
     <div className="space-y-3">
