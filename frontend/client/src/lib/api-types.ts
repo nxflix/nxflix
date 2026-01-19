@@ -1,0 +1,223 @@
+// Content Types
+export type ContentType = 'grammar' | 'vocabulary' | 'kanji' | 'reading' | 'listening';
+
+// Kanji Types
+export interface CompoundWord {
+  word: string;
+  reading: string;
+  meaning: string;
+}
+
+export interface KanjiItem {
+  id: string;
+  character: string;
+  strokeCount: number;
+  onyomi: string[];
+  kunyomi: string[];
+  meanings: string[];
+  radicals: string[];
+  compoundWords: CompoundWord[];
+  mnemonics?: string;
+  level: string;
+  contentType: 'kanji';
+}
+
+// Vocabulary Types
+export type PartOfSpeech = 'noun' | 'verb' | 'adjective_i' | 'adjective_na' | 'adverb' | 'particle' | 'conjunction' | 'expression';
+
+export interface VocabularyExample {
+  sentence: string;
+  translation: string;
+}
+
+export interface VocabularyItem {
+  id: string;
+  word: string;
+  reading: string;
+  meanings: string[];
+  partOfSpeech: PartOfSpeech;
+  examples: VocabularyExample[];
+  synonyms: string[];
+  level: string;
+  contentType: 'vocabulary';
+  audioUrl?: string;
+}
+
+// Reading Types
+export type ReadingPassageType = 'short' | 'medium' | 'long' | 'comparison';
+
+export interface ReadingQuestion {
+  id: string;
+  questionText: string;
+  options: string[];
+  correctOption: number;
+  explanation: string;
+}
+
+export interface ReadingPassage {
+  id: string;
+  passageType: ReadingPassageType;
+  title?: string;
+  content: string;
+  wordCount: number;
+  questions: ReadingQuestion[];
+  keyVocabulary: string[];
+  level: string;
+  contentType: 'reading';
+  estimatedMinutes: number;
+}
+
+// Listening Types
+export type ListeningType = 'task_based' | 'point_comprehension' | 'quick_response';
+
+export interface ListeningQuestion {
+  id: string;
+  questionText: string;
+  options: string[];
+  correctOption: number;
+  explanation: string;
+}
+
+export interface DialogueLine {
+  speaker: string;
+  text: string;
+  timestamp?: number;
+}
+
+export interface ListeningItem {
+  id: string;
+  listeningType: ListeningType;
+  audioUrl: string;
+  transcript: string;
+  dialogue: DialogueLine[];
+  durationSeconds: number;
+  questions: ListeningQuestion[];
+  speakers: string[];
+  level: string;
+  contentType: 'listening';
+}
+
+// Grammar Types (keeping existing structure)
+export interface GrammarPoint {
+  id: string;
+  pattern: string;
+  meaning: string;
+  example: string;
+  explanation?: string;
+  formationRules?: string[];
+  usageNotes?: string;
+  level: string;
+  contentType: 'grammar';
+}
+
+// Progress Types
+export interface SM2Data {
+  easeFactor: number;
+  interval: number;
+  repetitions: number;
+}
+
+export interface UserProgress {
+  userId: string;
+  itemId: string;
+  contentType: ContentType;
+  sm2Data: SM2Data;
+  timesStudied: number;
+  timesCorrect: number;
+  lastScore?: number;
+  masteryLevel: number;
+  nextReviewAt?: string;
+  lastStudiedAt?: string;
+}
+
+// Quiz Types
+export type QuestionType =
+  | 'multiple_choice'
+  | 'fill_in_blank'
+  | 'translation'
+  | 'sentence_construction'
+  | 'error_correction'
+  | 'kanji_reading'
+  | 'kanji_meaning'
+  | 'kanji_compound'
+  | 'kanji_write'
+  | 'vocab_meaning'
+  | 'vocab_reading'
+  | 'vocab_usage'
+  | 'vocab_synonym'
+  | 'listening_comprehension'
+  | 'listening_task'
+  | 'listening_detail'
+  | 'reading_comprehension'
+  | 'reading_inference'
+  | 'reading_vocabulary';
+
+export interface QuizQuestion {
+  id: string;
+  itemId: string;
+  contentType: ContentType;
+  questionType: QuestionType;
+  questionText: string;
+  options?: string[];
+  correctAnswer: string;
+  explanation: string;
+  difficulty: number;
+  audioUrl?: string;
+}
+
+export interface Quiz {
+  id: string;
+  userId: string;
+  contentTypes: ContentType[];
+  questions: QuizQuestion[];
+  createdAt: string;
+}
+
+// API Request/Response Types
+export interface GenerateKanjiRequest {
+  characters?: string[];
+  topic?: string;
+  count?: number;
+}
+
+export interface GenerateVocabularyRequest {
+  topic?: string;
+  count?: number;
+  includeAudio?: boolean;
+  partOfSpeech?: PartOfSpeech[];
+}
+
+export interface GenerateReadingRequest {
+  topic?: string;
+  passageType?: ReadingPassageType;
+  questionCount?: number;
+}
+
+export interface GenerateListeningRequest {
+  topic?: string;
+  listeningType?: ListeningType;
+  durationSeconds?: number;
+}
+
+export interface GenerateQuizRequest {
+  userId: string;
+  contentTypes?: ContentType[];
+  itemIds?: string[];
+  questionCount?: number;
+}
+
+export interface StatsResponse {
+  totalItems: number;
+  studiedCount: number;
+  masteredCount: number;
+  averageMastery: number;
+  totalStudyTimeMinutes: number;
+  byContentType: Record<string, number>;
+  currentStreak: number;
+  longestStreak: number;
+}
+
+export interface DueItemsResponse {
+  dueCount: number;
+  items: UserProgress[];
+}

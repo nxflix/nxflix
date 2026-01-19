@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
-import { Zap, Film, User, Menu } from "lucide-react";
+import { Zap, Film, Menu, BookOpen, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { LoginButton } from "@/components/auth";
 
 export function Nav() {
   const [location] = useLocation();
@@ -10,8 +11,9 @@ export function Nav() {
 
   const navItems = [
     { href: "/", label: "Home", icon: Zap },
-    { href: "/create", label: "Creator", icon: Film },
-    { href: "/watch", label: "Watcher", icon: User },
+    { href: "/study", label: "Study", icon: BookOpen },
+    { href: "/create", label: "Create", icon: Sparkles },
+    { href: "/watch", label: "Watch", icon: Film },
   ];
 
   return (
@@ -44,13 +46,12 @@ export function Nav() {
               </a>
             </Link>
           ))}
-          <Button variant="outline" className="font-mono text-xs border-primary/50 text-primary hover:bg-primary/10">
-            JLPT N1 STATUS: 365 DAYS
-          </Button>
+          <LoginButton />
         </div>
 
         {/* Mobile Nav */}
-        <div className="md:hidden">
+        <div className="md:hidden flex items-center gap-2">
+          <LoginButton />
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">

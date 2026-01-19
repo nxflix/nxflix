@@ -3,7 +3,17 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { settings } from './config.js';
 import { initTracing } from './tracing/index.js';
-import { studyRouter, quizRouter, progressRouter, healthRouter } from './routers/index.js';
+import {
+  studyRouter,
+  quizRouter,
+  progressRouter,
+  healthRouter,
+  kanjiRouter,
+  vocabularyRouter,
+  listeningRouter,
+  readingRouter,
+  ttsRouter,
+} from './routers/index.js';
 
 // Initialize tracing
 await initTracing();
@@ -29,6 +39,11 @@ app.use('/api', healthRouter);
 app.use('/api/study', studyRouter);
 app.use('/api/quiz', quizRouter);
 app.use('/api/progress', progressRouter);
+app.use('/api/kanji', kanjiRouter);
+app.use('/api/vocabulary', vocabularyRouter);
+app.use('/api/listening', listeningRouter);
+app.use('/api/reading', readingRouter);
+app.use('/api/tts', ttsRouter);
 
 // Error handling
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

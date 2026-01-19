@@ -1,230 +1,525 @@
-import { useState as useReactState } from "react";
-import { grammarPoints, movieClips } from "@/lib/mock-data";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Search, Play } from "lucide-react";
-import { motion } from "framer-motion";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { Link } from 'wouter';
+import {
+  useGenerateKanji,
+  useGenerateVocabulary,
+  useGenerateReading,
+  useGenerateListening,
+} from '@/lib/api';
+import type {
+  ContentType,
+  ReadingPassageType,
+  ListeningType,
+  PartOfSpeech,
+  KanjiItem,
+  VocabularyItem,
+  ReadingPassage,
+  ListeningItem,
+} from '@/lib/api-types';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  BookOpen,
+  Languages,
+  FileText,
+  Headphones,
+  PenTool,
+  Loader2,
+  Sparkles,
+  Check,
+  AlertCircle,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '@/hooks/use-toast';
+
+type GeneratedContent =
+  | { type: 'kanji'; data: KanjiItem[] }
+  | { type: 'vocabulary'; data: VocabularyItem[] }
+  | { type: 'reading'; data: ReadingPassage }
+  | { type: 'listening'; data: ListeningItem };
+
+const contentTypeInfo: Record<Exclude<ContentType, 'grammar'>, { icon: typeof BookOpen; label: string; color: string; description: string }> = {
+  vocabulary: {
+    icon: Languages,
+    label: 'Vocabulary',
+    color: 'text-green-500',
+    description: 'Generate JLPT N1 vocabulary sets with examples',
+  },
+  kanji: {
+    icon: PenTool,
+    label: 'Kanji',
+    color: 'text-purple-500',
+    description: 'Generate kanji cards with readings and compounds',
+  },
+  reading: {
+    icon: FileText,
+    label: 'Reading',
+    color: 'text-orange-500',
+    description: 'Create reading passages with comprehension questions',
+  },
+  listening: {
+    icon: Headphones,
+    label: 'Listening',
+    color: 'text-pink-500',
+    description: 'Generate listening exercises with TTS audio',
+  },
+};
 
 export default function Creator() {
-  const [selectedGrammar, setSelectedGrammar] = useReactState<string[]>([]);
-  const [isGenerating, setIsGenerating] = useReactState(false);
-  const [generatedClips, setGeneratedClips] = useReactState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<Exclude<ContentType, 'grammar'>>('vocabulary');
+  const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const { toast } = useToast();
 
-  const toggleGrammar = (id: string) => {
-    if (selectedGrammar.includes(id)) {
-      setSelectedGrammar(prev => prev.filter(g => g !== id));
-    } else {
-      if (selectedGrammar.length >= 3) {
-        toast({
-          title: "Limit Reached",
-          description: "You can only focus on 3 grammar patterns at a time.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setSelectedGrammar(prev => [...prev, id]);
-    }
-  };
+  // Form states
+  const [vocabForm, setVocabForm] = useState({ topic: '', count: 5 });
+  const [kanjiForm, setKanjiForm] = useState({ characters: '', count: 5 });
+  const [readingForm, setReadingForm] = useState<{ topic: string; passageType: ReadingPassageType }>({
+    topic: '',
+    passageType: 'short',
+  });
+  const [listeningForm, setListeningForm] = useState<{ topic: string; listeningType: ListeningType; duration: number }>({
+    topic: '',
+    listeningType: 'task_based',
+    duration: 60,
+  });
 
-  const handleGenerate = () => {
-    setIsGenerating(true);
-    // Simulate AI Agent work
-    setTimeout(() => {
-      setIsGenerating(false);
-      // Filter mock clips that match selected grammar (or just random ones for demo)
-      const matches = movieClips.filter(c => 
-        c.grammarIds.some(gid => selectedGrammar.includes(gid))
-      );
-      // If no matches found in mock data, just show some random ones for the prototype feel
-      setGeneratedClips(matches.length > 0 ? matches : [movieClips[0]]);
-      
+  // Mutations
+  const generateKanji = useGenerateKanji();
+  const generateVocabulary = useGenerateVocabulary();
+  const generateReading = useGenerateReading();
+  const generateListening = useGenerateListening();
+
+  const isGenerating =
+    generateKanji.isPending ||
+    generateVocabulary.isPending ||
+    generateReading.isPending ||
+    generateListening.isPending;
+
+  const handleGenerate = async () => {
+    try {
+      switch (activeTab) {
+        case 'vocabulary':
+          const vocabResult = await generateVocabulary.mutateAsync({
+            topic: vocabForm.topic || undefined,
+            count: vocabForm.count,
+          });
+          setGeneratedContent({ type: 'vocabulary', data: vocabResult });
+          toast({ title: 'Success', description: `Generated ${vocabResult.length} vocabulary items` });
+          break;
+
+        case 'kanji':
+          const kanjiChars = kanjiForm.characters.split('').filter((c) => c.trim());
+          const kanjiResult = await generateKanji.mutateAsync({
+            characters: kanjiChars.length > 0 ? kanjiChars : undefined,
+            count: kanjiForm.count,
+          });
+          setGeneratedContent({ type: 'kanji', data: kanjiResult });
+          toast({ title: 'Success', description: `Generated ${kanjiResult.length} kanji items` });
+          break;
+
+        case 'reading':
+          const readingResult = await generateReading.mutateAsync({
+            topic: readingForm.topic || undefined,
+            passageType: readingForm.passageType,
+          });
+          setGeneratedContent({ type: 'reading', data: readingResult });
+          toast({ title: 'Success', description: 'Generated reading passage' });
+          break;
+
+        case 'listening':
+          const listeningResult = await generateListening.mutateAsync({
+            topic: listeningForm.topic || undefined,
+            listeningType: listeningForm.listeningType,
+            durationSeconds: listeningForm.duration,
+          });
+          setGeneratedContent({ type: 'listening', data: listeningResult });
+          toast({ title: 'Success', description: 'Generated listening exercise' });
+          break;
+      }
+    } catch (error) {
       toast({
-        title: "Mission Complete",
-        description: `Agents found ${matches.length || 1} relevant clips.`,
+        title: 'Generation Failed',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
       });
-    }, 3000);
+    }
   };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="flex flex-col md:flex-row gap-8">
-        
-        {/* Left Panel: Grammar Selection */}
-        <div className="md:w-1/3 space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
-              <Search className="w-5 h-5 text-primary" />
-              Select Patterns
-            </h2>
-            <p className="text-sm text-muted-foreground">Choose max 3 patterns to target.</p>
-          </div>
-
-          <div className="grid gap-3">
-            {grammarPoints.map((grammar) => (
-              <Card 
-                key={grammar.id}
-                className={`p-4 cursor-pointer transition-all border-l-4 ${
-                  selectedGrammar.includes(grammar.id) 
-                    ? "border-l-primary bg-primary/5 shadow-lg shadow-primary/10" 
-                    : "border-l-transparent hover:border-l-primary/30"
-                }`}
-                onClick={() => toggleGrammar(grammar.id)}
-              >
-                <div className="flex items-start gap-3">
-                  <Checkbox 
-                    checked={selectedGrammar.includes(grammar.id)} 
-                    className="mt-1"
-                  />
-                  <div>
-                    <h3 className="font-bold text-lg font-serif">{grammar.pattern}</h3>
-                    <p className="text-sm text-muted-foreground">{grammar.meaning}</p>
-                    <p className="text-xs text-muted-foreground mt-2 italic border-l-2 border-border pl-2">
-                      "{grammar.example}"
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-
-          <Button 
-            size="lg" 
-            className="w-full font-mono text-lg h-14 bg-primary hover:bg-primary/90 relative overflow-hidden"
-            disabled={selectedGrammar.length === 0 || isGenerating}
-            onClick={handleGenerate}
-          >
-            {isGenerating ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                AGENTS SEARCHING...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                DEPLOY AGENTS
-                <span className="absolute right-0 top-0 bottom-0 w-2 bg-accent opacity-50" />
-              </span>
-            )}
-          </Button>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-serif font-bold flex items-center gap-2">
+            <Sparkles className="w-8 h-8 text-primary" />
+            Content Creator
+          </h1>
+          <p className="text-muted-foreground">Generate AI-powered JLPT N1 study materials</p>
         </div>
 
-        {/* Right Panel: Results / Terminal */}
-        <div className="md:w-2/3">
-          <div className="bg-black/40 rounded-lg border border-border min-h-[600px] p-6 relative overflow-hidden">
-            {/* Scanline effect */}
-            <div className="absolute inset-0 scanline opacity-20 pointer-events-none" />
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Left Panel: Generation Form */}
+          <Card className="p-6">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+              <TabsList className="grid grid-cols-4 w-full mb-6">
+                {Object.entries(contentTypeInfo).map(([type, info]) => (
+                  <TabsTrigger key={type} value={type} className="gap-1">
+                    <info.icon className={`w-4 h-4 ${info.color}`} />
+                    <span className="hidden sm:inline">{info.label}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-            {!isGenerating && generatedClips.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground/50 space-y-4">
-                <div className="w-20 h-20 border-2 border-dashed border-muted-foreground/30 rounded-full flex items-center justify-center">
-                  <Bot className="w-8 h-8" />
+              {/* Vocabulary Form */}
+              <TabsContent value="vocabulary" className="space-y-4">
+                <p className="text-sm text-muted-foreground">{contentTypeInfo.vocabulary.description}</p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="vocab-topic">Topic (optional)</Label>
+                    <Input
+                      id="vocab-topic"
+                      placeholder="e.g., business, technology, emotions"
+                      value={vocabForm.topic}
+                      onChange={(e) => setVocabForm((f) => ({ ...f, topic: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="vocab-count">Number of words</Label>
+                    <Select
+                      value={vocabForm.count.toString()}
+                      onValueChange={(v) => setVocabForm((f) => ({ ...f, count: parseInt(v) }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[3, 5, 10, 15, 20].map((n) => (
+                          <SelectItem key={n} value={n.toString()}>
+                            {n} words
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <p className="font-mono text-sm">AWAITING TARGET PARAMETERS...</p>
-              </div>
-            )}
+              </TabsContent>
 
-            {isGenerating && (
-              <div className="h-full flex flex-col items-center justify-center space-y-6">
-                 <div className="w-full max-w-xs">
-                    <div className="flex justify-between text-xs font-mono text-primary mb-2">
-                      <span>SCANNING DATABASE...</span>
-                      <span>45%</span>
-                    </div>
-                    <div className="h-1 bg-muted w-full overflow-hidden">
-                      <motion.div 
-                        className="h-full bg-primary"
-                        initial={{ width: "0%" }}
-                        animate={{ width: "100%" }}
-                        transition={{ duration: 3, ease: "linear" }}
-                      />
-                    </div>
-                 </div>
-                 <div className="font-mono text-xs text-green-400 space-y-1 opacity-70">
-                   <p>&gt; Accessing localized archives...</p>
-                   <p>&gt; Analyzing audio waveforms...</p>
-                   <p>&gt; Matching grammar pattern '～なり'...</p>
-                 </div>
-              </div>
-            )}
+              {/* Kanji Form */}
+              <TabsContent value="kanji" className="space-y-4">
+                <p className="text-sm text-muted-foreground">{contentTypeInfo.kanji.description}</p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="kanji-chars">Specific kanji (optional)</Label>
+                    <Input
+                      id="kanji-chars"
+                      placeholder="e.g., 憂鬱躊躇"
+                      value={kanjiForm.characters}
+                      onChange={(e) => setKanjiForm((f) => ({ ...f, characters: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enter specific kanji characters or leave empty for random N1 kanji
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="kanji-count">Number of kanji</Label>
+                    <Select
+                      value={kanjiForm.count.toString()}
+                      onValueChange={(v) => setKanjiForm((f) => ({ ...f, count: parseInt(v) }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[3, 5, 10, 15, 20].map((n) => (
+                          <SelectItem key={n} value={n.toString()}>
+                            {n} kanji
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </TabsContent>
 
-            {generatedClips.length > 0 && (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="flex justify-between items-center border-b border-border pb-4">
-                  <h3 className="font-mono text-green-400">SEARCH RESULTS COMPLETE</h3>
-                  <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                    {generatedClips.length} FOUND
-                  </span>
+              {/* Reading Form */}
+              <TabsContent value="reading" className="space-y-4">
+                <p className="text-sm text-muted-foreground">{contentTypeInfo.reading.description}</p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="reading-topic">Topic (optional)</Label>
+                    <Input
+                      id="reading-topic"
+                      placeholder="e.g., environment, culture, science"
+                      value={readingForm.topic}
+                      onChange={(e) => setReadingForm((f) => ({ ...f, topic: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="reading-type">Passage Type</Label>
+                    <Select
+                      value={readingForm.passageType}
+                      onValueChange={(v: ReadingPassageType) => setReadingForm((f) => ({ ...f, passageType: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="short">Short (~200 chars)</SelectItem>
+                        <SelectItem value="medium">Medium (~500 chars)</SelectItem>
+                        <SelectItem value="long">Long (~1000 chars)</SelectItem>
+                        <SelectItem value="comparison">Comparison (2 passages)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                
-                <div className="grid gap-6">
-                  {generatedClips.map((clip) => (
-                    <div key={clip.id} className="group relative bg-card/50 border border-border hover:border-primary/50 transition-colors rounded overflow-hidden">
-                      <div className="aspect-video w-full relative">
-                        <img src={clip.thumbnail} alt={clip.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/0 transition-colors">
-                          <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Play className="w-5 h-5 text-white ml-1" />
-                          </div>
-                        </div>
-                        <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-0.5 rounded font-mono">
-                          {clip.duration}
-                        </div>
-                      </div>
-                      <div className="p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-lg line-clamp-1">{clip.title}</h4>
-                          <span className="text-xs font-mono text-muted-foreground border border-border px-1 rounded">
-                            {clip.agentName}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                          {clip.description}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {clip.grammarIds.map((gid: string) => {
-                             const g = grammarPoints.find(p => p.id === gid);
-                             return g ? (
-                               <span key={gid} className="text-xs bg-primary/20 text-primary border border-primary/30 px-2 py-1 rounded font-serif">
-                                 {g.pattern}
-                               </span>
-                             ) : null;
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+              </TabsContent>
+
+              {/* Listening Form */}
+              <TabsContent value="listening" className="space-y-4">
+                <p className="text-sm text-muted-foreground">{contentTypeInfo.listening.description}</p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="listening-topic">Topic (optional)</Label>
+                    <Input
+                      id="listening-topic"
+                      placeholder="e.g., workplace, travel, daily life"
+                      value={listeningForm.topic}
+                      onChange={(e) => setListeningForm((f) => ({ ...f, topic: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="listening-type">Exercise Type</Label>
+                    <Select
+                      value={listeningForm.listeningType}
+                      onValueChange={(v: ListeningType) => setListeningForm((f) => ({ ...f, listeningType: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="task_based">Task-Based (Understand a task)</SelectItem>
+                        <SelectItem value="point_comprehension">Point Comprehension</SelectItem>
+                        <SelectItem value="quick_response">Quick Response</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="listening-duration">Duration</Label>
+                    <Select
+                      value={listeningForm.duration.toString()}
+                      onValueChange={(v) => setListeningForm((f) => ({ ...f, duration: parseInt(v) }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30">~30 seconds</SelectItem>
+                        <SelectItem value="60">~1 minute</SelectItem>
+                        <SelectItem value="120">~2 minutes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              </TabsContent>
+            </Tabs>
+
+            <Button
+              className="w-full mt-6"
+              size="lg"
+              onClick={handleGenerate}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate {contentTypeInfo[activeTab].label}
+                </>
+              )}
+            </Button>
+          </Card>
+
+          {/* Right Panel: Preview */}
+          <Card className="p-6 min-h-[500px]">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              Preview
+              {generatedContent && <Check className="w-4 h-4 text-green-500" />}
+            </h3>
+
+            <AnimatePresence mode="wait">
+              {isGenerating ? (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="h-full flex flex-col items-center justify-center space-y-4"
+                >
+                  <div className="relative">
+                    <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                    <Sparkles className="w-6 h-6 text-primary absolute -top-1 -right-1 animate-pulse" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium">AI Agent Working</p>
+                    <p className="text-sm text-muted-foreground">Generating {contentTypeInfo[activeTab].label.toLowerCase()}...</p>
+                  </div>
+                </motion.div>
+              ) : generatedContent ? (
+                <motion.div
+                  key="content"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-4 overflow-auto max-h-[450px]"
+                >
+                  {generatedContent.type === 'vocabulary' && (
+                    <VocabularyPreview items={generatedContent.data} />
+                  )}
+                  {generatedContent.type === 'kanji' && (
+                    <KanjiPreview items={generatedContent.data} />
+                  )}
+                  {generatedContent.type === 'reading' && (
+                    <ReadingPreview passage={generatedContent.data} />
+                  )}
+                  {generatedContent.type === 'listening' && (
+                    <ListeningPreview item={generatedContent.data} />
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="h-full flex flex-col items-center justify-center text-muted-foreground"
+                >
+                  <div className="p-4 rounded-full bg-muted mb-4">
+                    <Sparkles className="w-8 h-8" />
+                  </div>
+                  <p className="text-center">
+                    Configure your content and click Generate
+                    <br />
+                    to see a preview here.
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Card>
         </div>
       </div>
     </div>
   );
 }
 
-function Bot({ className }: { className?: string }) {
+// Preview Components
+function VocabularyPreview({ items }: { items: VocabularyItem[] }) {
   return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M12 8V4H8" />
-      <rect width="16" height="12" x="4" y="8" rx="2" />
-      <path d="M2 14h2" />
-      <path d="M20 14h2" />
-      <path d="M15 13v2" />
-      <path d="M9 13v2" />
-    </svg>
+    <div className="space-y-3">
+      {items.map((item) => (
+        <Card key={item.id} className="p-3">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xl font-bold">{item.word}</p>
+              <p className="text-sm text-muted-foreground">{item.reading}</p>
+            </div>
+            <span className="text-xs bg-muted px-2 py-1 rounded">{item.partOfSpeech}</span>
+          </div>
+          <p className="mt-2 text-sm">{item.meanings.join('; ')}</p>
+          {item.examples.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground italic border-l-2 pl-2">
+              {item.examples[0].sentence}
+            </p>
+          )}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function KanjiPreview({ items }: { items: KanjiItem[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {items.map((item) => (
+        <Card key={item.id} className="p-3 text-center">
+          <p className="text-4xl font-bold mb-2">{item.character}</p>
+          <div className="text-xs space-y-1">
+            <p><span className="text-muted-foreground">On:</span> {item.onyomi.join(', ')}</p>
+            <p><span className="text-muted-foreground">Kun:</span> {item.kunyomi.join(', ')}</p>
+            <p className="font-medium">{item.meanings.slice(0, 2).join(', ')}</p>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function ReadingPreview({ passage }: { passage: ReadingPassage }) {
+  return (
+    <div className="space-y-4">
+      {passage.title && <h4 className="font-semibold text-lg">{passage.title}</h4>}
+      <div className="bg-muted/50 p-4 rounded text-sm leading-relaxed">
+        {passage.content}
+      </div>
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          {passage.wordCount} characters | {passage.estimatedMinutes} min | {passage.questions.length} questions
+        </p>
+        {passage.keyVocabulary.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {passage.keyVocabulary.map((word, i) => (
+              <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                {word}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ListeningPreview({ item }: { item: ListeningItem }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Headphones className="w-5 h-5 text-primary" />
+        <span className="text-sm font-medium capitalize">{item.listeningType.replace('_', ' ')}</span>
+        <span className="text-xs text-muted-foreground">({item.durationSeconds}s)</span>
+      </div>
+
+      {item.audioUrl && (
+        <audio controls className="w-full">
+          <source src={item.audioUrl} type="audio/mpeg" />
+        </audio>
+      )}
+
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">Dialogue:</p>
+        {item.dialogue.map((line, i) => (
+          <div key={i} className="flex gap-2 text-sm">
+            <span className="font-medium text-primary">{line.speaker}:</span>
+            <span>{line.text}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="text-xs text-muted-foreground">
+        {item.questions.length} comprehension questions
+      </div>
+    </div>
   );
 }
