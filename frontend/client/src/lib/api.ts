@@ -25,6 +25,23 @@ import type {
   ScriptGenerateRequest,
   VideoStylesResponse,
   VideoVoice,
+  // Rewards & Analytics types
+  Epoch,
+  EpochType,
+  ContentEvent,
+  ContentStats,
+  CreatorPerformance,
+  LeaderboardEntry,
+  CreatorPoint,
+  CreatorReward,
+  DailyReward,
+  FeaturedContent,
+  TierThresholds,
+  EventWeights,
+  DailyRewardPoolItem,
+  TrackEventRequest,
+  CheckDailyRewardRequest,
+  AdminStats,
 } from './api-types';
 
 // ============================================================================
@@ -543,6 +560,424 @@ export function useRenderVideo() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/video', variables.id] });
+    },
+  });
+}
+
+// ============================================================================
+// Analytics Hooks
+// ============================================================================
+
+export function useTrackEvent() {
+  return useMutation({
+    mutationFn: async (request: TrackEventRequest) => {
+      const res = await apiRequest('POST', '/api/analytics/event', request);
+      return res.json() as Promise<{ success: boolean; event: ContentEvent }>;
+    },
+  });
+}
+
+export function useContentStats(contentId: string) {
+  return useQuery<{ stats: ContentStats }>({
+    queryKey: ['/api/analytics/content', contentId, 'stats'],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/content/${contentId}/stats`);
+      if (!res.ok) throw new Error('Failed to fetch content stats');
+      return res.json();
+    },
+    enabled: !!contentId,
+  });
+}
+
+export function useCreatorPerformance(userId: string, epochId?: string) {
+  const params = epochId ? `?epochId=${epochId}` : '';
+  return useQuery<{ performance: CreatorPerformance }>({
+    queryKey: ['/api/analytics/creator', userId, 'performance', epochId],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/creator/${userId}/performance${params}`);
+      if (!res.ok) throw new Error('Failed to fetch creator performance');
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useAnalyticsLeaderboard(epochId?: string, contentType?: string, limit: number = 10) {
+  const params = new URLSearchParams();
+  if (epochId) params.set('epochId', epochId);
+  if (contentType) params.set('contentType', contentType);
+  params.set('limit', limit.toString());
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+
+  return useQuery<{ leaderboard: LeaderboardEntry[]; count: number }>({
+    queryKey: ['/api/analytics/leaderboard', epochId, contentType, limit],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/leaderboard${queryString}`);
+      if (!res.ok) throw new Error('Failed to fetch leaderboard');
+      return res.json();
+    },
+  });
+}
+
+export function useEpochs() {
+  return useQuery<{ epochs: Epoch[]; count: number }>({
+    queryKey: ['/api/analytics/epochs'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics/epochs');
+      if (!res.ok) throw new Error('Failed to fetch epochs');
+      return res.json();
+    },
+  });
+}
+
+export function useCurrentEpochs() {
+  return useQuery<{ epochs: Record<EpochType, Epoch | null> }>({
+    queryKey: ['/api/analytics/epochs/current'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics/epochs/current');
+      if (!res.ok) throw new Error('Failed to fetch current epochs');
+      return res.json();
+    },
+  });
+}
+
+export function useEventWeights() {
+  return useQuery<{ weights: EventWeights }>({
+    queryKey: ['/api/analytics/weights'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics/weights');
+      if (!res.ok) throw new Error('Failed to fetch event weights');
+      return res.json();
+    },
+  });
+}
+
+// ============================================================================
+// Creator Rewards Hooks
+// ============================================================================
+
+export function useCreatorPoints(creatorId: string, epochId?: string) {
+  const params = epochId ? `?epochId=${epochId}` : '';
+  return useQuery<{ points: CreatorPoint[]; count: number }>({
+    queryKey: ['/api/rewards/creator', creatorId, 'points', epochId],
+    queryFn: async () => {
+      const res = await fetch(`/api/rewards/creator/${creatorId}/points${params}`);
+      if (!res.ok) throw new Error('Failed to fetch creator points');
+      return res.json();
+    },
+    enabled: !!creatorId,
+  });
+}
+
+export function useCreatorTotalPoints(creatorId: string) {
+  return useQuery<{ totalPoints: number; tier: string | null }>({
+    queryKey: ['/api/rewards/creator', creatorId, 'total'],
+    queryFn: async () => {
+      const res = await fetch(`/api/rewards/creator/${creatorId}/total`);
+      if (!res.ok) throw new Error('Failed to fetch total points');
+      return res.json();
+    },
+    enabled: !!creatorId,
+  });
+}
+
+export function useCreatorRewards(creatorId: string) {
+  return useQuery<{ rewards: CreatorReward[]; count: number }>({
+    queryKey: ['/api/rewards/creator', creatorId, 'rewards'],
+    queryFn: async () => {
+      const res = await fetch(`/api/rewards/creator/${creatorId}/rewards`);
+      if (!res.ok) throw new Error('Failed to fetch creator rewards');
+      return res.json();
+    },
+    enabled: !!creatorId,
+  });
+}
+
+export function usePointsLeaderboard(epochId?: string, limit: number = 10) {
+  const params = new URLSearchParams();
+  if (epochId) params.set('epochId', epochId);
+  params.set('limit', limit.toString());
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+
+  return useQuery<{ leaderboard: CreatorPoint[]; count: number }>({
+    queryKey: ['/api/rewards/leaderboard', epochId, limit],
+    queryFn: async () => {
+      const res = await fetch(`/api/rewards/leaderboard${queryString}`);
+      if (!res.ok) throw new Error('Failed to fetch points leaderboard');
+      return res.json();
+    },
+  });
+}
+
+export function useTierThresholds() {
+  return useQuery<{ tiers: TierThresholds }>({
+    queryKey: ['/api/rewards/tiers'],
+    queryFn: async () => {
+      const res = await fetch('/api/rewards/tiers');
+      if (!res.ok) throw new Error('Failed to fetch tier thresholds');
+      return res.json();
+    },
+  });
+}
+
+// ============================================================================
+// Daily Rewards Hooks
+// ============================================================================
+
+export function useCheckDailyReward() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (request: CheckDailyRewardRequest) => {
+      const res = await apiRequest('POST', '/api/rewards/daily/check', request);
+      return res.json() as Promise<{ success: boolean; reward: DailyReward; isNewReward: boolean }>;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rewards/daily', variables.userId] });
+    },
+  });
+}
+
+export function useTodayReward(userId: string) {
+  return useQuery<{ hasReward: boolean; reward: DailyReward | null }>({
+    queryKey: ['/api/rewards/daily', userId, 'today'],
+    queryFn: async () => {
+      const res = await fetch(`/api/rewards/daily/${userId}/today`);
+      if (!res.ok) throw new Error('Failed to fetch today reward');
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useClaimDailyReward() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ rewardId, userId }: { rewardId: string; userId: string }) => {
+      const res = await apiRequest('POST', `/api/rewards/daily/${rewardId}/claim`, { userId });
+      return res.json() as Promise<{ success: boolean; reward: DailyReward }>;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rewards/daily', variables.userId] });
+    },
+  });
+}
+
+export function useDailyRewardsHistory(userId: string) {
+  return useQuery<{ rewards: DailyReward[]; count: number }>({
+    queryKey: ['/api/rewards/daily', userId, 'history'],
+    queryFn: async () => {
+      const res = await fetch(`/api/rewards/daily/${userId}/history`);
+      if (!res.ok) throw new Error('Failed to fetch daily rewards history');
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useUserStreak(userId: string) {
+  return useQuery<{ streak: number }>({
+    queryKey: ['/api/rewards/daily', userId, 'streak'],
+    queryFn: async () => {
+      const res = await fetch(`/api/rewards/daily/${userId}/streak`);
+      if (!res.ok) throw new Error('Failed to fetch user streak');
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useDailyRewardPool() {
+  return useQuery<{ pool: DailyRewardPoolItem[]; distribution: Record<string, string> }>({
+    queryKey: ['/api/rewards/daily/pool'],
+    queryFn: async () => {
+      const res = await fetch('/api/rewards/daily/pool');
+      if (!res.ok) throw new Error('Failed to fetch reward pool');
+      return res.json();
+    },
+  });
+}
+
+// ============================================================================
+// Featured Content Hooks
+// ============================================================================
+
+export function useTodayFeatured() {
+  return useQuery<{ featured: FeaturedContent | null }>({
+    queryKey: ['/api/rewards/featured/today'],
+    queryFn: async () => {
+      const res = await fetch('/api/rewards/featured/today');
+      if (!res.ok) throw new Error('Failed to fetch today featured');
+      return res.json();
+    },
+  });
+}
+
+export function useRecentFeatured(days: number = 7) {
+  return useQuery<{ featured: FeaturedContent[]; count: number }>({
+    queryKey: ['/api/rewards/featured/recent', days],
+    queryFn: async () => {
+      const res = await fetch(`/api/rewards/featured/recent?days=${days}`);
+      if (!res.ok) throw new Error('Failed to fetch recent featured');
+      return res.json();
+    },
+  });
+}
+
+export function useRecordFeaturedImpression() {
+  return useMutation({
+    mutationFn: async (featuredId: string) => {
+      const res = await apiRequest('POST', `/api/rewards/featured/${featuredId}/impression`);
+      return res.json() as Promise<{ success: boolean }>;
+    },
+  });
+}
+
+export function useRecordFeaturedClick() {
+  return useMutation({
+    mutationFn: async (featuredId: string) => {
+      const res = await apiRequest('POST', `/api/rewards/featured/${featuredId}/click`);
+      return res.json() as Promise<{ success: boolean }>;
+    },
+  });
+}
+
+// ============================================================================
+// Admin Hooks
+// ============================================================================
+
+export function useAdminStats() {
+  return useQuery<AdminStats>({
+    queryKey: ['/api/admin/stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/stats');
+      if (!res.ok) throw new Error('Failed to fetch admin stats');
+      return res.json();
+    },
+  });
+}
+
+export function usePendingRewards() {
+  return useQuery<{ rewards: CreatorReward[]; count: number }>({
+    queryKey: ['/api/admin/rewards/pending'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/rewards/pending');
+      if (!res.ok) throw new Error('Failed to fetch pending rewards');
+      return res.json();
+    },
+  });
+}
+
+export function useApproveReward() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ rewardId, reviewedBy, tokenAmount }: { rewardId: string; reviewedBy: string; tokenAmount?: number }) => {
+      const res = await apiRequest('POST', `/api/admin/rewards/${rewardId}/approve`, { reviewedBy, tokenAmount });
+      return res.json() as Promise<{ success: boolean; reward: CreatorReward }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/rewards/pending'] });
+    },
+  });
+}
+
+export function useRejectReward() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ rewardId, reviewedBy }: { rewardId: string; reviewedBy: string }) => {
+      const res = await apiRequest('POST', `/api/admin/rewards/${rewardId}/reject`, { reviewedBy });
+      return res.json() as Promise<{ success: boolean; reward: CreatorReward }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/rewards/pending'] });
+    },
+  });
+}
+
+export function useDistributeReward() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (rewardId: string) => {
+      const res = await apiRequest('POST', `/api/admin/rewards/${rewardId}/distribute`);
+      return res.json() as Promise<{ success: boolean; reward: CreatorReward }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/rewards/pending'] });
+    },
+  });
+}
+
+export function useSelectFeaturedContent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ contentId, contentType, creatorId, reason }: { contentId: string; contentType: string; creatorId?: string; reason?: string }) => {
+      const res = await apiRequest('POST', '/api/admin/featured/select', { contentId, contentType, creatorId, reason });
+      return res.json() as Promise<{ success: boolean; featured: FeaturedContent }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rewards/featured'] });
+    },
+  });
+}
+
+export function useAutoSelectFeatured() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/admin/featured/auto-select');
+      return res.json() as Promise<{ success: boolean; featured: FeaturedContent }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rewards/featured'] });
+    },
+  });
+}
+
+export function useInitializeEpochs() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/admin/epochs/initialize');
+      return res.json() as Promise<{ success: boolean; epochs: Record<EpochType, Epoch> }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics/epochs'] });
+    },
+  });
+}
+
+export function useRolloverEpochs() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/admin/epochs/rollover');
+      return res.json() as Promise<{ success: boolean; completedEpochs: number; epochs: Epoch[] }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics/epochs'] });
+    },
+  });
+}
+
+export function useProcessEpochRewards() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (epochId: string) => {
+      const res = await apiRequest('POST', `/api/admin/epochs/${epochId}/process`);
+      return res.json() as Promise<{ success: boolean; result: unknown }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/rewards/pending'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/rewards/leaderboard'] });
     },
   });
 }

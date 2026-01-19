@@ -23,6 +23,8 @@ import {
 import Subscription from "@/pages/subscription";
 import VideoStudio from "@/pages/video-studio";
 import AnimationLab from "@/pages/animation-lab";
+import CreatorDashboard from "@/pages/creator-dashboard";
+import AdminRewards from "@/pages/admin/rewards";
 
 function Router() {
   return (
@@ -42,6 +44,8 @@ function Router() {
       <Route path="/study/reading" component={ReadingStudy} />
       <Route path="/study/listening" component={ListeningStudy} />
       <Route path="/subscribe" component={Subscription} />
+      <Route path="/creator-dashboard" component={CreatorDashboard} />
+      <Route path="/admin/rewards" component={AdminRewards} />
       <Route component={NotFound} />
     </Switch>
   );

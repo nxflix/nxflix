@@ -247,3 +247,132 @@ export type NewFocusSession = typeof focusSessions.$inferInsert;
 
 export type VideoProject = typeof videoProjects.$inferSelect;
 export type NewVideoProject = typeof videoProjects.$inferInsert;
+
+// ============================================================================
+// Epochs Table - Time-based periods for tracking and reward distribution
+// ============================================================================
+export const epochs = pgTable('epochs', {
+  id: varchar('id', { length: 100 }).primaryKey(),
+  epochType: varchar('epoch_type', { length: 20 }).notNull(), // 'daily', 'weekly', 'monthly'
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date').notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('active'), // 'active', 'completed', 'processing'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// Content Events Table - Real-time event log for analytics
+// ============================================================================
+export const contentEvents = pgTable('content_events', {
+  id: varchar('id', { length: 100 }).primaryKey(),
+  contentId: varchar('content_id', { length: 100 }).notNull(),
+  contentType: varchar('content_type', { length: 20 }).notNull(),
+  userId: varchar('user_id', { length: 100 }),
+  eventType: varchar('event_type', { length: 30 }).notNull(), // 'view', 'study', 'complete', 'save', 'share'
+  eventData: jsonb('event_data').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// Content Epoch Stats Table - Aggregated content performance per epoch
+// ============================================================================
+export const contentEpochStats = pgTable('content_epoch_stats', {
+  id: varchar('id', { length: 100 }).primaryKey(),
+  epochId: varchar('epoch_id', { length: 100 }).notNull(),
+  contentId: varchar('content_id', { length: 100 }).notNull(),
+  contentType: varchar('content_type', { length: 20 }).notNull(),
+  creatorId: varchar('creator_id', { length: 100 }),
+  viewCount: integer('view_count').notNull().default(0),
+  studyCount: integer('study_count').notNull().default(0),
+  completionCount: integer('completion_count').notNull().default(0),
+  saveCount: integer('save_count').notNull().default(0),
+  shareCount: integer('share_count').notNull().default(0),
+  uniqueUsers: integer('unique_users').notNull().default(0),
+  averageRating: real('average_rating'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// Creator Points Table - Points ledger per epoch
+// ============================================================================
+export const creatorPoints = pgTable('creator_points', {
+  id: varchar('id', { length: 100 }).primaryKey(),
+  creatorId: varchar('creator_id', { length: 100 }).notNull(),
+  epochId: varchar('epoch_id', { length: 100 }).notNull(),
+  pointsEarned: integer('points_earned').notNull().default(0),
+  tier: varchar('tier', { length: 20 }), // 'bronze', 'silver', 'gold', 'platinum'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// Creator Rewards Table - Pending rewards for owner review
+// ============================================================================
+export const creatorRewards = pgTable('creator_rewards', {
+  id: varchar('id', { length: 100 }).primaryKey(),
+  creatorId: varchar('creator_id', { length: 100 }).notNull(),
+  epochId: varchar('epoch_id', { length: 100 }).notNull(),
+  pointsEarned: integer('points_earned').notNull(),
+  tier: varchar('tier', { length: 20 }),
+  rewardType: varchar('reward_type', { length: 50 }), // 'badge', 'feature', 'tokens_pending'
+  rewardValue: text('reward_value'),
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending', 'approved', 'distributed', 'rejected'
+  reviewedBy: varchar('reviewed_by', { length: 100 }),
+  reviewedAt: timestamp('reviewed_at'),
+  tokenAmount: real('token_amount'), // JLPT tokens to distribute
+  distributedAt: timestamp('distributed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// Daily Rewards Table - Random surprise rewards for active users
+// ============================================================================
+export const dailyRewards = pgTable('daily_rewards', {
+  id: varchar('id', { length: 100 }).primaryKey(),
+  userId: varchar('user_id', { length: 100 }).notNull(),
+  rewardDate: timestamp('reward_date').notNull(),
+  qualifyingTaskId: varchar('qualifying_task_id', { length: 100 }),
+  qualifyingTaskType: varchar('qualifying_task_type', { length: 50 }),
+  rewardRarity: varchar('reward_rarity', { length: 20 }).notNull(), // 'common', 'uncommon', 'rare', 'legendary'
+  rewardType: varchar('reward_type', { length: 50 }).notNull(),
+  rewardValue: text('reward_value'),
+  claimed: boolean('claimed').notNull().default(false),
+  claimedAt: timestamp('claimed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// Featured Content Table - Daily highlighted content
+// ============================================================================
+export const featuredContent = pgTable('featured_content', {
+  id: varchar('id', { length: 100 }).primaryKey(),
+  contentId: varchar('content_id', { length: 100 }).notNull(),
+  contentType: varchar('content_type', { length: 20 }).notNull(),
+  creatorId: varchar('creator_id', { length: 100 }),
+  featureDate: timestamp('feature_date').notNull(),
+  featureReason: text('feature_reason'), // 'Trending', 'New Creator Spotlight', etc.
+  impressions: integer('impressions').notNull().default(0),
+  clicks: integer('clicks').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Type exports for new tables
+export type Epoch = typeof epochs.$inferSelect;
+export type NewEpoch = typeof epochs.$inferInsert;
+
+export type ContentEvent = typeof contentEvents.$inferSelect;
+export type NewContentEvent = typeof contentEvents.$inferInsert;
+
+export type ContentEpochStat = typeof contentEpochStats.$inferSelect;
+export type NewContentEpochStat = typeof contentEpochStats.$inferInsert;
+
+export type CreatorPoint = typeof creatorPoints.$inferSelect;
+export type NewCreatorPoint = typeof creatorPoints.$inferInsert;
+
+export type CreatorReward = typeof creatorRewards.$inferSelect;
+export type NewCreatorReward = typeof creatorRewards.$inferInsert;
+
+export type DailyReward = typeof dailyRewards.$inferSelect;
+export type NewDailyReward = typeof dailyRewards.$inferInsert;
+
+export type FeaturedContent = typeof featuredContent.$inferSelect;
+export type NewFeaturedContent = typeof featuredContent.$inferInsert;

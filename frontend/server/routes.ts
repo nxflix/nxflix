@@ -187,5 +187,188 @@ export async function registerRoutes(
     res.status((result as any).status || 200).json(result);
   });
 
+  // ============================================================================
+  // Analytics Routes (proxy to TypeScript agent)
+  // ============================================================================
+  app.post("/api/analytics/event", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/analytics/event", "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/analytics/content/:contentId/stats", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/analytics/content/${req.params.contentId}/stats`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/analytics/creator/:userId/performance", async (req: Request, res: Response) => {
+    const epochId = req.query.epochId ? `?epochId=${req.query.epochId}` : "";
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/analytics/creator/${req.params.userId}/performance${epochId}`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/analytics/leaderboard", async (req: Request, res: Response) => {
+    const queryParams = new URLSearchParams();
+    if (req.query.epochId) queryParams.set("epochId", req.query.epochId as string);
+    if (req.query.contentType) queryParams.set("contentType", req.query.contentType as string);
+    if (req.query.limit) queryParams.set("limit", req.query.limit as string);
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : "";
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/analytics/leaderboard${queryString}`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/analytics/epochs", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/analytics/epochs", "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/analytics/epochs/current", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/analytics/epochs/current", "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  // ============================================================================
+  // Rewards Routes (proxy to TypeScript agent)
+  // ============================================================================
+  app.get("/api/rewards/creator/:creatorId/points", async (req: Request, res: Response) => {
+    const epochId = req.query.epochId ? `?epochId=${req.query.epochId}` : "";
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/creator/${req.params.creatorId}/points${epochId}`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/rewards/creator/:creatorId/total", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/creator/${req.params.creatorId}/total`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/rewards/creator/:creatorId/rewards", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/creator/${req.params.creatorId}/rewards`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/rewards/leaderboard", async (req: Request, res: Response) => {
+    const queryParams = new URLSearchParams();
+    if (req.query.epochId) queryParams.set("epochId", req.query.epochId as string);
+    if (req.query.limit) queryParams.set("limit", req.query.limit as string);
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : "";
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/leaderboard${queryString}`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/rewards/tiers", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/rewards/tiers", "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  // Daily Rewards
+  app.post("/api/rewards/daily/check", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/rewards/daily/check", "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/rewards/daily/:userId/today", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/daily/${req.params.userId}/today`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/rewards/daily/:rewardId/claim", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/daily/${req.params.rewardId}/claim`, "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/rewards/daily/:userId/history", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/daily/${req.params.userId}/history`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/rewards/daily/:userId/streak", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/daily/${req.params.userId}/streak`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/rewards/daily/pool", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/rewards/daily/pool", "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  // Featured Content
+  app.get("/api/rewards/featured/today", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/rewards/featured/today", "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/rewards/featured/recent", async (req: Request, res: Response) => {
+    const days = req.query.days ? `?days=${req.query.days}` : "";
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/featured/recent${days}`, "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/rewards/featured/:featuredId/impression", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/featured/${req.params.featuredId}/impression`, "POST");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/rewards/featured/:featuredId/click", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/rewards/featured/${req.params.featuredId}/click`, "POST");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  // ============================================================================
+  // Admin Routes (proxy to TypeScript agent)
+  // ============================================================================
+  app.get("/api/admin/rewards/pending", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/admin/rewards/pending", "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/admin/rewards/:rewardId/approve", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/admin/rewards/${req.params.rewardId}/approve`, "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/admin/rewards/:rewardId/reject", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/admin/rewards/${req.params.rewardId}/reject`, "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/admin/rewards/:rewardId/distribute", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/admin/rewards/${req.params.rewardId}/distribute`, "POST");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/admin/featured/select", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/admin/featured/select", "POST", req.body);
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/admin/featured/auto-select", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/admin/featured/auto-select", "POST");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/admin/epochs", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/admin/epochs", "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/admin/epochs/rollover", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/admin/epochs/rollover", "POST");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/admin/epochs/initialize", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/admin/epochs/initialize", "POST");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.post("/api/admin/epochs/:epochId/process", async (req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, `/api/admin/epochs/${req.params.epochId}/process`, "POST");
+    res.status((result as any).status || 200).json(result);
+  });
+
+  app.get("/api/admin/stats", async (_req: Request, res: Response) => {
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/admin/stats", "GET");
+    res.status((result as any).status || 200).json(result);
+  });
+
   return httpServer;
 }

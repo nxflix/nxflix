@@ -18,6 +18,9 @@ import {
   sideshiftRouter,
   focusRouter,
   videoRouter,
+  analyticsRouter,
+  rewardsRouter,
+  adminRouter,
 } from './routers/index.js';
 
 // Initialize tracing
@@ -59,6 +62,9 @@ app.use('/api/tts', ttsRouter);
 app.use('/api/sideshift', sideshiftRouter);
 app.use('/api/focus', focusRouter);
 app.use('/api/video', videoRouter);
+app.use('/api/analytics', analyticsRouter);
+app.use('/api/rewards', rewardsRouter);
+app.use('/api/admin', adminRouter);
 
 // Error handling
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

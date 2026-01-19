@@ -379,3 +379,168 @@ export interface VideoVoice {
   description: string;
   provider: string;
 }
+
+// ============================================================================
+// Rewards & Analytics Types
+// ============================================================================
+
+export type EpochType = 'daily' | 'weekly' | 'monthly';
+export type EpochStatus = 'active' | 'completed' | 'processing';
+export type EventType = 'view' | 'study' | 'complete' | 'save' | 'share';
+export type PointsTier = 'bronze' | 'silver' | 'gold' | 'platinum';
+export type RewardStatus = 'pending' | 'approved' | 'distributed' | 'rejected';
+export type RewardRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
+
+export interface Epoch {
+  id: string;
+  epochType: EpochType;
+  startDate: string;
+  endDate: string;
+  status: EpochStatus;
+  createdAt: string;
+}
+
+export interface ContentEvent {
+  id: string;
+  contentId: string;
+  contentType: ContentType;
+  userId?: string;
+  eventType: EventType;
+  eventData?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ContentStats {
+  contentId: string;
+  contentType: string;
+  totalViews: number;
+  totalStudies: number;
+  totalCompletions: number;
+  totalSaves: number;
+  totalShares: number;
+  uniqueUsers: number;
+  weightedScore: number;
+}
+
+export interface CreatorPerformance {
+  creatorId: string;
+  totalViews: number;
+  totalStudies: number;
+  totalCompletions: number;
+  totalSaves: number;
+  totalShares: number;
+  totalPoints: number;
+  contentCount: number;
+}
+
+export interface LeaderboardEntry {
+  contentId: string;
+  contentType: string;
+  creatorId?: string;
+  score: number;
+  viewCount: number;
+  studyCount: number;
+  completionCount: number;
+}
+
+export interface CreatorPoint {
+  id: string;
+  creatorId: string;
+  epochId: string;
+  pointsEarned: number;
+  tier?: PointsTier;
+  createdAt: string;
+}
+
+export interface CreatorReward {
+  id: string;
+  creatorId: string;
+  epochId: string;
+  pointsEarned: number;
+  tier?: PointsTier;
+  rewardType?: string;
+  rewardValue?: string;
+  status: RewardStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  tokenAmount?: number;
+  distributedAt?: string;
+  createdAt: string;
+}
+
+export interface DailyReward {
+  id: string;
+  userId: string;
+  rewardDate: string;
+  qualifyingTaskId?: string;
+  qualifyingTaskType?: string;
+  rewardRarity: RewardRarity;
+  rewardType: string;
+  rewardValue?: string;
+  claimed: boolean;
+  claimedAt?: string;
+  createdAt: string;
+}
+
+export interface FeaturedContent {
+  id: string;
+  contentId: string;
+  contentType: string;
+  creatorId?: string;
+  featureDate: string;
+  featureReason?: string;
+  impressions: number;
+  clicks: number;
+  createdAt: string;
+}
+
+export interface TierThresholds {
+  bronze: { min: number; max: number };
+  silver: { min: number; max: number };
+  gold: { min: number; max: number };
+  platinum: { min: number; max: number };
+}
+
+export interface EventWeights {
+  view: number;
+  study: number;
+  complete: number;
+  save: number;
+  share: number;
+}
+
+export interface DailyRewardPoolItem {
+  rarity: RewardRarity;
+  type: string;
+  description: string;
+}
+
+export interface TrackEventRequest {
+  contentId: string;
+  contentType: string;
+  userId?: string;
+  eventType: EventType;
+  eventData?: Record<string, unknown>;
+}
+
+export interface CheckDailyRewardRequest {
+  userId: string;
+  qualifyingTaskId: string;
+  qualifyingTaskType: string;
+}
+
+export interface AdminStats {
+  pendingRewardsCount: number;
+  activeEpochs: {
+    daily: string | null;
+    weekly: string | null;
+    monthly: string | null;
+  };
+  hasTodayFeatured: boolean;
+  todayFeatured: {
+    id: string;
+    contentId: string;
+    contentType: string;
+    reason?: string;
+  } | null;
+}
