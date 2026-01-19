@@ -221,3 +221,44 @@ export interface DueItemsResponse {
   dueCount: number;
   items: UserProgress[];
 }
+
+// Focus Types
+export interface FocusContent {
+  id: string;
+  type: ContentType;
+  title: string;
+  content: {
+    main: string;
+    sub?: string;
+    detail?: string;
+    example?: string;
+  };
+  reason: string;
+  studyTip: string;
+  generatedAt: string;
+  itemId: string;
+}
+
+export interface FocusDailyRequest {
+  userId: string;
+  preferredTypes?: ContentType[];
+}
+
+export interface FocusCompleteResponse {
+  success: boolean;
+  message: string;
+  contentId: string;
+  completedAt: string;
+  progress?: {
+    itemId: string;
+    masteryLevel: number;
+    timesStudied: number;
+    nextReview?: string;
+  };
+  stats?: {
+    totalSessions: number;
+    completedSessions: number;
+    streakDays: number;
+    averageTimeSeconds: number;
+  };
+}

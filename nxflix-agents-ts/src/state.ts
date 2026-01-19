@@ -266,3 +266,117 @@ export function getPendingShifts(): SubscriptionShift[] {
     s => s.status === 'waiting' || s.status === 'processing'
   );
 }
+
+// ============================================
+// Focus Session History
+// ============================================
+
+export interface FocusSession {
+  id: string;
+  userId: string;
+  contentId: string;
+  contentType: ContentType;
+  itemId: string;
+  startedAt: Date;
+  completedAt?: Date;
+  revealed: boolean;
+  timeSpentSeconds?: number;
+}
+
+// Focus history: userId -> FocusSession[]
+const focusHistory: Record<string, FocusSession[]> = {};
+
+/**
+ * Record a focus session start
+ */
+export function startFocusSession(session: FocusSession): void {
+  if (!focusHistory[session.userId]) {
+    focusHistory[session.userId] = [];
+  }
+  focusHistory[session.userId].push(session);
+}
+
+/**
+ * Complete a focus session
+ */
+export function completeFocusSession(
+  userId: string,
+  contentId: string,
+  revealed: boolean = true
+): FocusSession | undefined {
+  const sessions = focusHistory[userId];
+  if (!sessions) return undefined;
+
+  const session = sessions.find(s => s.contentId === contentId && !s.completedAt);
+  if (session) {
+    session.completedAt = new Date();
+    session.revealed = revealed;
+    session.timeSpentSeconds = Math.floor(
+      (session.completedAt.getTime() - session.startedAt.getTime()) / 1000
+    );
+  }
+  return session;
+}
+
+/**
+ * Get user's focus history
+ */
+export function getFocusHistory(userId: string, limit?: number): FocusSession[] {
+  const sessions = focusHistory[userId] ?? [];
+  const sorted = [...sessions].sort(
+    (a, b) => b.startedAt.getTime() - a.startedAt.getTime()
+  );
+  return limit ? sorted.slice(0, limit) : sorted;
+}
+
+/**
+ * Get recently studied item IDs (for avoiding repetition)
+ */
+export function getRecentlyStudiedItems(userId: string, days: number = 1): string[] {
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  const sessions = focusHistory[userId] ?? [];
+  return sessions
+    .filter(s => s.startedAt.getTime() > cutoff)
+    .map(s => s.itemId);
+}
+
+/**
+ * Get focus session stats for a user
+ */
+export function getFocusStats(userId: string): {
+  totalSessions: number;
+  completedSessions: number;
+  averageTimeSeconds: number;
+  streakDays: number;
+  lastSessionDate?: string;
+} {
+  const sessions = focusHistory[userId] ?? [];
+  const completed = sessions.filter(s => s.completedAt);
+
+  const avgTime = completed.length > 0
+    ? completed.reduce((sum, s) => sum + (s.timeSpentSeconds || 0), 0) / completed.length
+    : 0;
+
+  // Calculate streak
+  let streakDays = 0;
+  const today = new Date().toISOString().split('T')[0];
+  const sessionDates = new Set(
+    completed.map(s => s.completedAt!.toISOString().split('T')[0])
+  );
+
+  let checkDate = new Date();
+  while (sessionDates.has(checkDate.toISOString().split('T')[0])) {
+    streakDays++;
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  const lastSession = completed[completed.length - 1];
+
+  return {
+    totalSessions: sessions.length,
+    completedSessions: completed.length,
+    averageTimeSeconds: Math.round(avgTime),
+    streakDays,
+    lastSessionDate: lastSession?.completedAt?.toISOString(),
+  };
+}

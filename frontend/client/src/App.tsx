@@ -4,12 +4,14 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./lib/auth";
 import { Toaster } from "@/components/ui/toaster";
 import { Nav } from "@/components/nav";
+import { FloatingFocusButton } from "@/components/focus";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import RoleSelection from "@/pages/role-selection";
 import Creator from "@/pages/creator";
 import Watcher from "@/pages/watcher";
 import Discover from "@/pages/discover";
+import Focus from "@/pages/focus";
 import StudyDashboard from "@/pages/study-dashboard";
 import {
   GrammarStudy,
@@ -26,6 +28,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/role" component={RoleSelection} />
       <Route path="/discover" component={Discover} />
+      <Route path="/focus" component={Focus} />
       <Route path="/create" component={Creator} />
       <Route path="/watch" component={Watcher} />
       <Route path="/study" component={StudyDashboard} />
@@ -49,6 +52,7 @@ function App() {
           <main>
             <Router />
           </main>
+          <FloatingFocusButton />
           <Toaster />
         </div>
       </QueryClientProvider>

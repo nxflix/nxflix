@@ -15,6 +15,9 @@ import type {
   GenerateReadingRequest,
   GenerateListeningRequest,
   GenerateQuizRequest,
+  FocusContent,
+  FocusDailyRequest,
+  FocusCompleteResponse,
 } from './api-types';
 
 // ============================================================================
@@ -246,6 +249,28 @@ export function useStudyRecommendations(userId: string) {
     mutationFn: async ({ focusAreas }: { focusAreas?: ContentType[] } = {}) => {
       const res = await apiRequest('POST', '/api/study/recommendations', { userId, focusAreas });
       return res.json() as Promise<{ recommendations: StudyRecommendation[] }>;
+    },
+  });
+}
+
+// ============================================================================
+// Focus Hooks
+// ============================================================================
+
+export function useFocusDaily() {
+  return useMutation({
+    mutationFn: async (request: FocusDailyRequest) => {
+      const res = await apiRequest('POST', '/api/focus/daily', request);
+      return res.json() as Promise<{ content: FocusContent }>;
+    },
+  });
+}
+
+export function useFocusComplete() {
+  return useMutation({
+    mutationFn: async ({ contentId, userId, quality = 4 }: { contentId: string; userId: string; quality?: number }) => {
+      const res = await apiRequest('POST', `/api/focus/${contentId}/complete`, { userId, quality });
+      return res.json() as Promise<FocusCompleteResponse>;
     },
   });
 }

@@ -338,7 +338,7 @@ export default function Discover() {
   };
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-40">
       {/* Header */}
       <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-md border-b border-border/50">
         <div className="container mx-auto px-4 py-4">
@@ -426,7 +426,7 @@ export default function Discover() {
       </div>
 
       {/* Bottom Search Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border/50 p-4 z-40">
+      <div className="fixed bottom-20 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border/50 p-4 z-30">
         <div className="container mx-auto max-w-2xl">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
