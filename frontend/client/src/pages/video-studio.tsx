@@ -512,7 +512,7 @@ export default function VideoStudio() {
             <span>2 credits</span>
           </div>
         </div>
-      </div>
+        </div>
 
         {/* Main Content - Preview Area */}
         <div className="flex-1 flex flex-col bg-[#0d0d1a] relative">
@@ -802,6 +802,7 @@ export default function VideoStudio() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </TooltipProvider>
