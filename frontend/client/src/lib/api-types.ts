@@ -87,7 +87,8 @@ export interface DialogueLine {
 export interface ListeningItem {
   id: string;
   listeningType: ListeningType;
-  audioUrl: string;
+  audioUrl?: string;
+  audioBase64?: string;
   transcript: string;
   dialogue: DialogueLine[];
   durationSeconds: number;
@@ -193,10 +194,16 @@ export interface GenerateReadingRequest {
   questionCount?: number;
 }
 
+export type TTSProvider = 'openai' | 'google' | 'elevenlabs';
+
 export interface GenerateListeningRequest {
   topic?: string;
   listeningType?: ListeningType;
   durationSeconds?: number;
+  questionCount?: number;
+  speakerCount?: number;
+  generateAudio?: boolean; // Defaults to true on backend
+  ttsProvider?: TTSProvider; // TTS provider to use for audio generation
 }
 
 export interface GenerateQuizRequest {

@@ -15,6 +15,7 @@ import type {
   VocabularyItem,
   ReadingPassage,
   ListeningItem,
+  TTSProvider,
 } from '@/lib/api-types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -87,10 +88,11 @@ export default function Creator() {
     topic: '',
     passageType: 'short',
   });
-  const [listeningForm, setListeningForm] = useState<{ topic: string; listeningType: ListeningType; duration: number }>({
+  const [listeningForm, setListeningForm] = useState<{ topic: string; listeningType: ListeningType; duration: number; ttsProvider: TTSProvider }>({
     topic: '',
     listeningType: 'task_based',
     duration: 60,
+    ttsProvider: 'google', // Default to Google since OpenAI quota exceeded
   });
 
   // Mutations
@@ -141,9 +143,11 @@ export default function Creator() {
             topic: listeningForm.topic || undefined,
             listeningType: listeningForm.listeningType,
             durationSeconds: listeningForm.duration,
+            generateAudio: true, // Enable TTS audio generation
+            ttsProvider: listeningForm.ttsProvider, // Use selected TTS provider
           });
           setGeneratedContent({ type: 'listening', data: listeningResult });
-          toast({ title: 'Success', description: 'Generated listening exercise' });
+          toast({ title: 'Success', description: `Generated listening exercise with ${listeningForm.ttsProvider} audio` });
           break;
       }
     } catch (error) {
@@ -329,6 +333,25 @@ export default function Creator() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label htmlFor="tts-provider">TTS Voice Provider</Label>
+                    <Select
+                      value={listeningForm.ttsProvider}
+                      onValueChange={(v: TTSProvider) => setListeningForm((f) => ({ ...f, ttsProvider: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="google">Google Cloud TTS (Recommended)</SelectItem>
+                        <SelectItem value="openai">OpenAI TTS</SelectItem>
+                        <SelectItem value="elevenlabs">ElevenLabs (Premium)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Select which AI service generates the audio
+                    </p>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
@@ -497,6 +520,9 @@ function ReadingPreview({ passage }: { passage: ReadingPassage }) {
 }
 
 function ListeningPreview({ item }: { item: ListeningItem }) {
+  // Get audio source from either audioUrl or audioBase64
+  const audioSrc = item.audioUrl || (item.audioBase64 ? `data:audio/mpeg;base64,${item.audioBase64}` : null);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -505,10 +531,12 @@ function ListeningPreview({ item }: { item: ListeningItem }) {
         <span className="text-xs text-muted-foreground">({item.durationSeconds}s)</span>
       </div>
 
-      {item.audioUrl && (
+      {audioSrc ? (
         <audio controls className="w-full">
-          <source src={item.audioUrl} type="audio/mpeg" />
+          <source src={audioSrc} type="audio/mpeg" />
         </audio>
+      ) : (
+        <p className="text-xs text-muted-foreground italic">Audio generating...</p>
       )}
 
       <div className="space-y-2">

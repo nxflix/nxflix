@@ -155,6 +155,8 @@ export class TTSService {
       throw new Error('OpenAI API key not configured');
     }
 
+    console.log(`[TTS] Synthesizing ${text.length} characters with OpenAI (voice: ${voice}, speed: ${speed})`);
+
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -172,6 +174,7 @@ export class TTSService {
 
     if (!response.ok) {
       const error = await response.text();
+      console.error(`[TTS] OpenAI TTS error: ${error}`);
       throw new Error(`OpenAI TTS error: ${error}`);
     }
 
@@ -180,6 +183,8 @@ export class TTSService {
 
     // Estimate duration (rough estimate based on text length and speed)
     const estimatedDuration = (text.length * 0.15) / speed;
+
+    console.log(`[TTS] Successfully generated ${audioBase64.length} bytes of audio`);
 
     return {
       audioBase64,

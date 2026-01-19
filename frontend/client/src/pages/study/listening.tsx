@@ -1,7 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Link } from 'wouter';
 import { useListening } from '@/lib/api';
 import type { ListeningItem, ListeningQuestion } from '@/lib/api-types';
+
+// Helper to get playable audio URL from either audioUrl or audioBase64
+function getAudioSrc(item: ListeningItem | undefined): string | undefined {
+  if (!item) return undefined;
+  if (item.audioUrl) return item.audioUrl;
+  if (item.audioBase64) return `data:audio/mpeg;base64,${item.audioBase64}`;
+  return undefined;
+}
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -37,6 +45,9 @@ export default function ListeningStudy() {
 
   const { data: listeningItems, isLoading } = useListening();
   const currentItem = listeningItems?.[currentIndex];
+
+  // Memoize audio source URL (from audioUrl or audioBase64)
+  const audioSrc = useMemo(() => getAudioSrc(currentItem), [currentItem]);
 
   const handleNext = () => {
     setShowTranscript(false);
@@ -186,10 +197,10 @@ export default function ListeningStudy() {
 
             {/* Audio Player */}
             <Card className="p-6">
-              {currentItem.audioUrl && (
+              {audioSrc && (
                 <audio
                   ref={audioRef}
-                  src={currentItem.audioUrl}
+                  src={audioSrc}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
                   onEnded={() => setIsPlaying(false)}
@@ -201,7 +212,7 @@ export default function ListeningStudy() {
                   variant="outline"
                   size="icon"
                   onClick={handleRestart}
-                  disabled={!currentItem.audioUrl}
+                  disabled={!audioSrc}
                 >
                   <RotateCcw className="w-4 h-4" />
                 </Button>
@@ -209,7 +220,7 @@ export default function ListeningStudy() {
                   size="lg"
                   className="w-16 h-16 rounded-full"
                   onClick={handlePlayPause}
-                  disabled={!currentItem.audioUrl}
+                  disabled={!audioSrc}
                 >
                   {isPlaying ? (
                     <Pause className="w-6 h-6" />
@@ -233,7 +244,7 @@ export default function ListeningStudy() {
                   max={duration || currentItem.durationSeconds}
                   step={0.1}
                   onValueChange={handleSeek}
-                  disabled={!currentItem.audioUrl}
+                  disabled={!audioSrc}
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{formatTime(currentTime)}</span>
@@ -241,7 +252,7 @@ export default function ListeningStudy() {
                 </div>
               </div>
 
-              {!currentItem.audioUrl && (
+              {!audioSrc && (
                 <p className="text-center text-sm text-muted-foreground mt-4">
                   Audio not available. Read the transcript below.
                 </p>

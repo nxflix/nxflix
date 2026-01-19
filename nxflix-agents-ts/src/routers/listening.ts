@@ -110,9 +110,12 @@ listeningRouter.post('/generate', async (req: Request, res: Response) => {
 
     // Generate TTS audio if requested
     if (request.generateAudio && listening.transcript) {
+      const provider = request.ttsProvider || 'openai';
+      console.log(`[Listening] Generating TTS audio for ${listening.transcript.length} characters with ${provider}...`);
       try {
         const ttsResult = await ttsService.synthesize(listening.transcript, {
           speed: 0.9, // Slightly slower for listening practice
+          provider: provider as 'openai' | 'google' | 'elevenlabs',
         });
 
         listening = {
@@ -120,10 +123,13 @@ listeningRouter.post('/generate', async (req: Request, res: Response) => {
           audioBase64: ttsResult.audioBase64,
           durationSeconds: ttsResult.durationSeconds,
         };
+        console.log(`[Listening] TTS audio generated successfully (${ttsResult.audioBase64.length} bytes)`);
       } catch (ttsError) {
-        console.error('TTS generation failed:', ttsError);
-        // Continue without audio
+        console.error('[Listening] TTS generation failed:', ttsError);
+        // Continue without audio - the UI will show "Audio not available"
       }
+    } else {
+      console.log(`[Listening] Skipping TTS: generateAudio=${request.generateAudio}, hasTranscript=${!!listening.transcript}`);
     }
 
     // Add to service

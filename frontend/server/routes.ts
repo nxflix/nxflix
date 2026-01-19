@@ -11,20 +11,31 @@ async function proxyToAgent(
   agentUrl: string,
   path: string,
   method: string,
-  body?: unknown
+  body?: unknown,
+  timeoutMs: number = 30000 // Default 30s timeout
 ): Promise<Response | { error: string; status: number }> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     const response = await fetch(`${agentUrl}${path}`, {
       method,
       headers: {
         "Content-Type": "application/json",
       },
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     const data = await response.json();
     return { status: response.status, ...data };
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error(`Agent proxy timeout: ${path}`);
+      return { error: "Request timed out", status: 504 };
+    }
     console.error(`Agent proxy error: ${error}`);
     return { error: "Agent service unavailable", status: 503 };
   }
@@ -117,7 +128,8 @@ export async function registerRoutes(
   });
 
   app.post("/api/listening/generate", async (req: Request, res: Response) => {
-    const result = await proxyToAgent(AGENT_TS_URL, "/api/listening/generate", "POST", req.body);
+    // Longer timeout for listening generation (LLM + TTS can take 2+ minutes)
+    const result = await proxyToAgent(AGENT_TS_URL, "/api/listening/generate", "POST", req.body, 180000);
     res.status((result as any).status || 200).json(result);
   });
 

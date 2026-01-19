@@ -78,5 +78,6 @@ export const ListeningGenerateRequest = z.object({
   questionCount: z.number().int().min(1).max(5).default(2),
   speakerCount: z.number().int().min(1).max(3).default(2),
   generateAudio: z.boolean().default(true),
+  ttsProvider: z.enum(['openai', 'google', 'elevenlabs']).optional(),
 });
 export type ListeningGenerateRequest = z.infer<typeof ListeningGenerateRequest>;
