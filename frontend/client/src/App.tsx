@@ -22,6 +22,7 @@ import {
 } from "@/pages/study";
 import Subscription from "@/pages/subscription";
 import VideoStudio from "@/pages/video-studio";
+import AnimationLab from "@/pages/animation-lab";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/focus" component={Focus} />
       <Route path="/create" component={Creator} />
       <Route path="/studio" component={VideoStudio} />
+      <Route path="/animation-lab" component={AnimationLab} />
       <Route path="/watch" component={Watcher} />
       <Route path="/study" component={StudyDashboard} />
       <Route path="/study/grammar" component={GrammarStudy} />
