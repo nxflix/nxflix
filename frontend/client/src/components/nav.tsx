@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Zap, Film, Menu, BookOpen, Sparkles } from "lucide-react";
+import { Zap, Film, Menu, BookOpen, Sparkles, Crown } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ export function Nav() {
     { href: "/", label: "Home", icon: Zap },
     { href: "/study", label: "Study", icon: BookOpen },
     { href: "/create", label: "Create", icon: Sparkles },
-    { href: "/watch", label: "Watch", icon: Film },
+    { href: "/subscribe", label: "Premium", icon: Crown },
   ];
 
   return (

@@ -17,6 +17,7 @@ import {
   ReadingStudy,
   ListeningStudy,
 } from "@/pages/study";
+import Subscription from "@/pages/subscription";
 
 function Router() {
   return (
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/study/kanji" component={KanjiStudy} />
       <Route path="/study/reading" component={ReadingStudy} />
       <Route path="/study/listening" component={ListeningStudy} />
+      <Route path="/subscribe" component={Subscription} />
       <Route component={NotFound} />
     </Switch>
   );
