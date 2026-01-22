@@ -142,7 +142,7 @@ export class DIDService {
       throw new Error(`D-ID API error: ${response.status} - ${errorText}`);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   /**

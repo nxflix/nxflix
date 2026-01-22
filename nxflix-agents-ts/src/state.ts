@@ -6,7 +6,7 @@
 import type { UserProgress } from './models/progress.js';
 import type { GrammarPoint, GrammarCategory } from './models/grammar.js';
 import type { ContentType } from './models/content-type.js';
-import type { SubscriptionShift, ShiftStatus } from './models/sideshift.js';
+import type { SubscriptionShift } from './models/sideshift.js';
 import { GrammarService } from './services/grammar.js';
 import { SM2Service } from './services/spaced-repetition.js';
 
@@ -359,7 +359,6 @@ export function getFocusStats(userId: string): {
 
   // Calculate streak
   let streakDays = 0;
-  const today = new Date().toISOString().split('T')[0];
   const sessionDates = new Set(
     completed.map(s => s.completedAt!.toISOString().split('T')[0])
   );

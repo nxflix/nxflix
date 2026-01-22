@@ -140,9 +140,7 @@ listeningRouter.post('/generate', async (req: Request, res: Response) => {
     const prompt = buildListeningGenerationPrompt(request);
 
     // Generate the script and questions
-    const generatedScript = await llm.completeJson<{
-      listening: Omit<ListeningItemType, 'audioUrl' | 'audioBase64'>;
-    }>(
+    const generatedScript = await llm.completeJson(
       [{ role: 'user', content: prompt }],
       z.object({
         listening: ListeningItem.omit({ audioUrl: true, audioBase64: true }),

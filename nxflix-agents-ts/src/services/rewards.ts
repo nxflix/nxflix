@@ -126,11 +126,11 @@ export class RewardsService {
 
     // Group by creator
     const creatorStats = new Map<string, {
-      views: number;
-      studies: number;
-      completions: number;
-      saves: number;
-      shares: number;
+      viewCount: number;
+      studyCount: number;
+      completionCount: number;
+      saveCount: number;
+      shareCount: number;
     }>();
 
     for (const stat of epochStats) {
@@ -138,20 +138,20 @@ export class RewardsService {
 
       if (!creatorStats.has(stat.creatorId)) {
         creatorStats.set(stat.creatorId, {
-          views: 0,
-          studies: 0,
-          completions: 0,
-          saves: 0,
-          shares: 0,
+          viewCount: 0,
+          studyCount: 0,
+          completionCount: 0,
+          saveCount: 0,
+          shareCount: 0,
         });
       }
 
       const current = creatorStats.get(stat.creatorId)!;
-      current.views += stat.viewCount;
-      current.studies += stat.studyCount;
-      current.completions += stat.completionCount;
-      current.saves += stat.saveCount;
-      current.shares += stat.shareCount;
+      current.viewCount += stat.viewCount;
+      current.studyCount += stat.studyCount;
+      current.completionCount += stat.completionCount;
+      current.saveCount += stat.saveCount;
+      current.shareCount += stat.shareCount;
     }
 
     const pointsRecords: CreatorPoint[] = [];

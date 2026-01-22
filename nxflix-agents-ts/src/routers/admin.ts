@@ -26,10 +26,6 @@ const SetFeaturedSchema = z.object({
   reason: z.string().optional(),
 });
 
-const ProcessEpochSchema = z.object({
-  epochId: z.string(),
-});
-
 // ============================================================================
 // Reward Management
 // ============================================================================

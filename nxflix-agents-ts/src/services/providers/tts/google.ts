@@ -111,7 +111,7 @@ export class GoogleTTSProvider implements ITTSProvider {
       throw new Error(`Google TTS error: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { audioContent: string };
 
     // Estimate duration
     const estimatedDuration = (text.length * 0.12) / speed;

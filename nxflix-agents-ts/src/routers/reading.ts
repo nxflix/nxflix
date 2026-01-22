@@ -124,7 +124,7 @@ readingRouter.post('/generate', async (req: Request, res: Response) => {
 
     const prompt = buildReadingGenerationPrompt(request);
 
-    const generatedReading = await llm.completeJson<{ reading: ReadingPassageModel }>(
+    const generatedReading = await llm.completeJson(
       [{ role: 'user', content: prompt }],
       z.object({
         reading: ReadingPassage,

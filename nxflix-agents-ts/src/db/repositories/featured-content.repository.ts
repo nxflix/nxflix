@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import { db, featuredContent, type FeaturedContent, type NewFeaturedContent } from '../index.js';
 
 export class FeaturedContentRepository {

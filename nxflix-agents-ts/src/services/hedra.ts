@@ -138,7 +138,7 @@ export class HedraService {
       throw new Error(`Hedra API error: ${response.status} - ${errorText}`);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   /**

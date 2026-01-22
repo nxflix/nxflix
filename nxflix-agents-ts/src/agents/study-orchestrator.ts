@@ -96,7 +96,7 @@ Respond with a JSON object containing:
 
       // Fall back to due items if LLM recommendations are invalid
       if (validIds.length === 0 && dueItems.length > 0) {
-        validIds = dueItems.slice(0, request.maxItems).map((p) => p.grammarId);
+        validIds = dueItems.slice(0, request.maxItems).map((p) => p.itemId);
       }
 
       const recommendation: StudyRecommendation = {
@@ -130,7 +130,8 @@ Respond with a JSON object containing:
     const session: StudySession = {
       id: sessionId,
       userId: request.userId,
-      grammarIds: request.grammarIds,
+      itemIds: request.grammarIds,
+      contentTypes: ['grammar'],
       startedAt: new Date().toISOString(),
       completedAt: null,
       results: [],
@@ -167,10 +168,10 @@ Respond with a JSON object containing:
     // Update user progress using SM-2
     const updatedProgress: Record<string, UserProgress> = {};
     for (const result of results) {
-      if (result.grammarId in userProgress) {
-        const progress = userProgress[result.grammarId];
+      if (result.itemId in userProgress) {
+        const progress = userProgress[result.itemId];
         const quality = Math.round(result.score);
-        updatedProgress[result.grammarId] = this.sm2Service.updateProgress(
+        updatedProgress[result.itemId] = this.sm2Service.updateProgress(
           progress,
           quality
         );
@@ -206,7 +207,7 @@ Respond with a JSON object containing:
 - Items needing review: ${weakItems.length}`;
 
     if (weakItems.length > 0) {
-      const weakIds = weakItems.slice(0, 5).map((p) => p.grammarId);
+      const weakIds = weakItems.slice(0, 5).map((p) => p.itemId);
       summary += `\n- Weakest items: ${weakIds.join(', ')}`;
     }
 
@@ -219,7 +220,7 @@ Respond with a JSON object containing:
     }
 
     return `- ${dueItems.length} items due for review
-- Item IDs: ${dueItems.slice(0, 10).map((p) => p.grammarId).join(', ')}`;
+- Item IDs: ${dueItems.slice(0, 10).map((p) => p.itemId).join(', ')}`;
   }
 
   private buildGrammarSummary(grammar: GrammarPoint[]): string {

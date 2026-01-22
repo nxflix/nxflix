@@ -7,7 +7,6 @@ import {
   createPublicClient,
   createWalletClient,
   http,
-  parseEther,
   formatEther,
   type Address,
   type Hash,

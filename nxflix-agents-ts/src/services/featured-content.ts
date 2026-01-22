@@ -124,7 +124,7 @@ export class FeaturedContentService {
 
     // Get recently featured creators to avoid
     const recentFeatured = await featuredContentRepository.findRecent(7);
-    const recentCreators = new Set(recentFeatured.map((f) => f.creatorId).filter(Boolean));
+    const recentCreators = new Set(recentFeatured.map((f) => f.creatorId).filter((id): id is string => id !== null));
 
     // Calculate scores for each candidate
     const candidates: ContentCandidate[] = [];

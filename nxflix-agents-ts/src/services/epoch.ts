@@ -8,7 +8,6 @@
  * - Distribute rewards at epoch end
  */
 
-import { v4 as uuid } from 'uuid';
 import {
   epochsRepository,
   type EpochType,

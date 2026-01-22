@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import { db, dailyRewards, type DailyReward, type NewDailyReward } from '../index.js';
 
 export type RewardRarity = 'common' | 'uncommon' | 'rare' | 'legendary';

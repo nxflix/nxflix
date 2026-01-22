@@ -104,7 +104,7 @@ grammarRouter.post('/generate', async (req: Request, res: Response) => {
     const request = GrammarGenerateSchema.parse(req.body);
     const prompt = buildGrammarGenerationPrompt(request);
 
-    const generated = await llm.completeJson<{ grammar: GrammarPointType[] }>(
+    const generated = await llm.completeJson(
       [{ role: 'user', content: prompt }],
       z.object({
         grammar: z.array(GrammarPoint),

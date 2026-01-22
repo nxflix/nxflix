@@ -98,7 +98,8 @@ Generate a JSON object with a "questions" array. Each question should have:
         try {
           const question: QuizQuestion = {
             id: (qData.id as string) ?? `q${i + 1}`,
-            grammarId: (qData.grammar_id as string) ?? grammarIds[0],
+            itemId: (qData.grammar_id as string) ?? grammarIds[0],
+            contentType: 'grammar',
             questionType: (qData.question_type as QuestionType) ?? 'multiple_choice',
             questionText: (qData.question_text as string) ?? '',
             questionTextJp: qData.question_text_jp as string | undefined,
@@ -118,7 +119,8 @@ Generate a JSON object with a "questions" array. Each question should have:
       const quiz: Quiz = {
         id: quizId,
         userId,
-        grammarIds,
+        itemIds: grammarIds,
+        contentTypes: ['grammar'],
         questions,
         difficulty,
         timeLimitSeconds: null,
@@ -144,7 +146,7 @@ Generate a JSON object with a "questions" array. Each question should have:
     });
 
     try {
-      const grammar = this.grammarService.getGrammarPoint(question.grammarId);
+      const grammar = this.grammarService.getGrammarPoint(question.itemId);
       const grammarInfo = grammar
         ? `Pattern: ${grammar.pattern}\nMeaning: ${grammar.meaning}`
         : '';

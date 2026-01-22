@@ -104,7 +104,7 @@ kanjiRouter.post('/generate', async (req: Request, res: Response) => {
 
     const prompt = buildKanjiGenerationPrompt(request);
 
-    const generatedKanji = await llm.completeJson<{ kanji: KanjiItemType[] }>(
+    const generatedKanji = await llm.completeJson(
       [{ role: 'user', content: prompt }],
       z.object({
         kanji: z.array(KanjiItem),

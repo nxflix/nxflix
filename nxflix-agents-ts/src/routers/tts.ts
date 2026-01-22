@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { TTSService, TTSProvider, JapaneseVoices, TTSSynthesizeOptions } from '../services/tts.js';
+import { TTSService, TTSProvider, JapaneseVoices } from '../services/tts.js';
 
 const ttsRouter = Router();
 

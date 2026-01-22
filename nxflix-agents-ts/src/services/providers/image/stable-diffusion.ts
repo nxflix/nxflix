@@ -57,7 +57,7 @@ export class StableDiffusionImageProvider implements IImageProvider {
       throw new Error(`Stable Diffusion error: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { artifacts?: Array<{ base64: string }> };
 
     if (!data.artifacts || data.artifacts.length === 0) {
       throw new Error('No images generated');

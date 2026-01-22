@@ -47,13 +47,13 @@ export class StaticImageProvider implements IImageProvider {
     return true;
   }
 
-  async generate(prompt: string, options?: ImageOptions): Promise<ImageResult> {
+  async generate(_prompt: string, options?: ImageOptions): Promise<ImageResult> {
     // For generic generation, return the default background
     return this.generateBackground('default', 'abstract', options);
   }
 
   async generateBackground(
-    description: string,
+    _description: string,
     style: string,
     options?: ImageOptions
   ): Promise<ImageResult> {
@@ -78,7 +78,7 @@ export class StaticImageProvider implements IImageProvider {
   }
 
   async generateCharacter(
-    description: string,
+    _description: string,
     style: string,
     options?: ImageOptions
   ): Promise<ImageResult> {

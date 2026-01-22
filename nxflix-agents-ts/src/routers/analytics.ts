@@ -5,7 +5,7 @@ import {
   epochService,
   EVENT_WEIGHTS,
 } from '../services/index.js';
-import type { EventType } from '../db/repositories/index.js';
+import type {} from '../db/repositories/index.js';
 
 const analyticsRouter = Router();
 

@@ -23,7 +23,7 @@ export class RunwayVideoProvider implements IVideoProvider {
 
   async render(
     project: VideoProject,
-    options?: VideoRenderOptions
+    _options?: VideoRenderOptions
   ): Promise<VideoRenderResult> {
     if (!this.apiKey) {
       throw new Error('Runway API key not configured');
@@ -53,7 +53,10 @@ export class RunwayVideoProvider implements IVideoProvider {
       throw new Error(`Runway error: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      id?: string;
+      output?: string[];
+    };
 
     // Runway uses async generation - poll for completion
     if (data.id) {
@@ -61,7 +64,7 @@ export class RunwayVideoProvider implements IVideoProvider {
     }
 
     return {
-      videoUrl: data.output[0],
+      videoUrl: data.output?.[0] ?? '',
       durationSeconds: project.script.totalDurationSeconds,
     };
   }
@@ -107,11 +110,16 @@ export class RunwayVideoProvider implements IVideoProvider {
         continue;
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        status?: string;
+        output?: string[];
+        duration?: number;
+        failure?: string;
+      };
 
       if (data.status === 'SUCCEEDED') {
         return {
-          videoUrl: data.output[0],
+          videoUrl: data.output?.[0] ?? '',
           durationSeconds: data.duration || 10,
         };
       }

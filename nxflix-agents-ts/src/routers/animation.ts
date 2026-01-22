@@ -219,7 +219,7 @@ animationRouter.post('/generate', async (req: Request, res: Response) => {
 // GET /api/animation/status/:jobId - Get generation status
 animationRouter.get('/status/:jobId', async (req: Request, res: Response) => {
   try {
-    const { jobId } = req.params;
+    const jobId = req.params.jobId as string;
     const provider = (req.query.provider as string) || 'd-id';
 
     if (!jobId) {
@@ -258,7 +258,7 @@ animationRouter.get('/status/:jobId', async (req: Request, res: Response) => {
 // POST /api/animation/wait/:jobId - Wait for generation to complete
 animationRouter.post('/wait/:jobId', async (req: Request, res: Response) => {
   try {
-    const { jobId } = req.params;
+    const jobId = req.params.jobId as string;
     const timeout = parseInt(req.query.timeout as string) || 5 * 60 * 1000;
     const provider = (req.query.provider as string) || 'd-id';
 
@@ -348,7 +348,7 @@ animationRouter.post('/ai-video/generate', async (req: Request, res: Response) =
 // GET /api/animation/ai-video/status/:jobId - Get AI video generation status
 animationRouter.get('/ai-video/status/:jobId', async (req: Request, res: Response) => {
   try {
-    const { jobId } = req.params;
+    const jobId = req.params.jobId as string;
 
     if (!jobId) {
       res.status(400).json({ error: 'Missing jobId parameter' });
@@ -391,7 +391,7 @@ animationRouter.get('/ai-video/status/:jobId', async (req: Request, res: Respons
 // POST /api/animation/ai-video/wait/:jobId - Wait for AI video generation to complete
 animationRouter.post('/ai-video/wait/:jobId', async (req: Request, res: Response) => {
   try {
-    const { jobId } = req.params;
+    const jobId = req.params.jobId as string;
     const timeout = parseInt(req.query.timeout as string) || 10 * 60 * 1000;
 
     if (!jobId) {

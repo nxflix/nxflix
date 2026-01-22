@@ -24,7 +24,7 @@ export class GeminiVeoVideoProvider implements IVideoProvider {
 
   async render(
     project: VideoProject,
-    options?: VideoRenderOptions
+    _options?: VideoRenderOptions
   ): Promise<VideoRenderResult> {
     if (!this.apiKey) {
       throw new Error('Google API key not configured');
@@ -63,7 +63,11 @@ export class GeminiVeoVideoProvider implements IVideoProvider {
       throw new Error(`Gemini Veo error: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      operation_id?: string;
+      video_url?: string;
+      thumbnail_url?: string;
+    };
 
     // Handle async generation (polling for completion)
     if (data.operation_id) {
@@ -71,7 +75,7 @@ export class GeminiVeoVideoProvider implements IVideoProvider {
     }
 
     return {
-      videoUrl: data.video_url,
+      videoUrl: data.video_url ?? '',
       thumbnailUrl: data.thumbnail_url,
       durationSeconds: project.script.totalDurationSeconds,
     };
@@ -120,7 +124,11 @@ Requirements:
         continue;
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        done?: boolean;
+        error?: { message: string };
+        response?: { video_url: string; thumbnail_url?: string; duration_seconds?: number };
+      };
 
       if (data.done) {
         if (data.error) {
@@ -128,9 +136,9 @@ Requirements:
         }
 
         return {
-          videoUrl: data.response.video_url,
-          thumbnailUrl: data.response.thumbnail_url,
-          durationSeconds: data.response.duration_seconds || 60,
+          videoUrl: data.response?.video_url ?? '',
+          thumbnailUrl: data.response?.thumbnail_url,
+          durationSeconds: data.response?.duration_seconds || 60,
         };
       }
     }

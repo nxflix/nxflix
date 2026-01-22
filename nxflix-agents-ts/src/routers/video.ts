@@ -18,7 +18,7 @@ import {
   CharacterStyle,
   VideoStyle,
 } from '../models/video.js';
-import { PipelineConfig } from '../models/pipeline-config.js';
+import type {} from '../models/pipeline-config.js';
 
 const videoRouter = Router();
 

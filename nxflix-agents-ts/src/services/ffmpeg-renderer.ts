@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { createTrace } from '../tracing/index.js';
 import type {
   VideoProject,
-  VideoScript,
   VideoSubtitle,
   CharacterStyle,
   VideoStyle,
@@ -461,7 +460,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
       // Input: Character image (if available)
       const hasCharacter = params.charPath !== null;
-      if (hasCharacter) {
+      if (hasCharacter && params.charPath) {
         args.push('-loop', '1', '-t', String(params.duration), '-i', params.charPath);
       }
 
@@ -541,7 +540,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
    * Generate a thumbnail from the video.
    */
   private generateThumbnail(videoPath: string, thumbPath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const ffmpeg = spawn('ffmpeg', [
         '-i', videoPath,
         '-ss', '00:00:01',

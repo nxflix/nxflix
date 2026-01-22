@@ -50,7 +50,7 @@ export class DALLEImageProvider implements IImageProvider {
       throw new Error(`DALL-E error: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { data: Array<{ b64_json: string }> };
     const imageData = data.data[0];
 
     const dimensions = this.parseSizeString(size);

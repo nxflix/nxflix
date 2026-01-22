@@ -137,7 +137,7 @@ export class RunwayService {
       throw new Error(`Runway API error: ${response.status} - ${errorText}`);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   /**
@@ -253,9 +253,6 @@ export class RunwayService {
           error: errorMsg,
         };
       }
-
-      // Map status
-      const mappedStatus = task.status === 'RUNNING' ? 'processing' : 'pending';
 
       if (onProgress) {
         onProgress(task);

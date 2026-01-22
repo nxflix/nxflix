@@ -3,10 +3,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { LLMProvider } from '../providers/llm.js';
 import { TTSService } from '../services/tts.js';
 import { createTrace } from '../tracing/index.js';
-import type { VocabularyItem, VocabularyGenerateRequest } from '../models/vocabulary.js';
-import type { KanjiItem, KanjiGenerateRequest } from '../models/kanji.js';
-import type { ReadingPassage, ReadingPassageType, ReadingGenerateRequest } from '../models/reading.js';
-import type { ListeningItem, ListeningType, ListeningGenerateRequest } from '../models/listening.js';
+import type { VocabularyItem } from '../models/vocabulary.js';
+import type { KanjiItem } from '../models/kanji.js';
+import type { ReadingPassage, ReadingPassageType } from '../models/reading.js';
+import type { ListeningItem, ListeningType } from '../models/listening.js';
 
 /**
  * Response schemas for LLM-generated content.
@@ -73,10 +73,12 @@ export class ContentCreatorAgent {
         level: 'N1',
       })) as VocabularyItem[];
 
-      trace.output = { generatedCount: vocabulary.length };
+      trace?.update({ output: { generatedCount: vocabulary.length } });
+      trace?.end();
       return vocabulary;
     } catch (error) {
-      trace.error = String(error);
+      trace?.update({ output: { error: String(error) } });
+      trace?.end();
       throw error;
     }
   }
@@ -111,10 +113,12 @@ export class ContentCreatorAgent {
         level: 'N1',
       })) as KanjiItem[];
 
-      trace.output = { generatedCount: kanji.length };
+      trace?.update({ output: { generatedCount: kanji.length } });
+      trace?.end();
       return kanji;
     } catch (error) {
-      trace.error = String(error);
+      trace?.update({ output: { error: String(error) } });
+      trace?.end();
       throw error;
     }
   }
@@ -154,10 +158,12 @@ export class ContentCreatorAgent {
         wordCount: result.reading.content?.split(/\s+/).length || 0,
       } as ReadingPassage;
 
-      trace.output = { generatedId: reading.id };
+      trace?.update({ output: { generatedId: reading.id } });
+      trace?.end();
       return reading;
     } catch (error) {
-      trace.error = String(error);
+      trace?.update({ output: { error: String(error) } });
+      trace?.end();
       throw error;
     }
   }
@@ -216,10 +222,12 @@ export class ContentCreatorAgent {
         }
       }
 
-      trace.output = { generatedId: listening.id, hasAudio: !!listening.audioBase64 };
+      trace?.update({ output: { generatedId: listening.id, hasAudio: !!listening.audioBase64 } });
+      trace?.end();
       return listening;
     } catch (error) {
-      trace.error = String(error);
+      trace?.update({ output: { error: String(error) } });
+      trace?.end();
       throw error;
     }
   }
@@ -301,13 +309,13 @@ export class ContentCreatorAgent {
         }
       }
 
-      trace.output = {
-        generatedTypes: Object.keys(results),
-      };
+      trace?.update({ output: { generatedTypes: Object.keys(results) } });
+      trace?.end();
 
       return results;
     } catch (error) {
-      trace.error = String(error);
+      trace?.update({ output: { error: String(error) } });
+      trace?.end();
       throw error;
     }
   }

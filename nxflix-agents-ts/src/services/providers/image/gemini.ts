@@ -47,7 +47,7 @@ export class GeminiImageProvider implements IImageProvider {
       throw new Error(`Gemini Imagen error: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { generated_images?: Array<{ image: { image_bytes: string } }> };
 
     if (!data.generated_images || data.generated_images.length === 0) {
       throw new Error('No images generated');

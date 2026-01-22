@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { z } from 'zod';
-import { userProgress, sm2Service, getUserProgressByType, getUserProgress, makeProgressKey } from '../state.js';
+import { userProgress, sm2Service, getUserProgressByType, getUserProgress } from '../state.js';
 import type { UserProgress } from '../models/progress.js';
 import { ContentType } from '../models/content-type.js';
 

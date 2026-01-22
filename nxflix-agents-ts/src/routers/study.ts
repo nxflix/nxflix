@@ -30,7 +30,8 @@ const SessionRequestSchema = z.object({
 const SessionCompleteRequestSchema = z.object({
   sessionId: z.string(),
   results: z.array(z.object({
-    grammarId: z.string(),
+    itemId: z.string(),
+    contentType: z.enum(['grammar', 'vocabulary', 'reading', 'kanji', 'listening']).default('grammar'),
     questionsAsked: z.number().int(),
     correctAnswers: z.number().int(),
     score: z.number(),
@@ -83,12 +84,14 @@ studyRouter.put('/sessions/:id/complete', async (req: Request<{ id: string }>, r
     const userId = session.userId;
     const userProgressDict: Record<string, UserProgress> = userProgress[userId] ?? {};
 
-    // Create progress entries for new grammar points
+    // Create progress entries for new items
     for (const result of results) {
-      if (!(result.grammarId in userProgressDict)) {
-        userProgressDict[result.grammarId] = {
+      const progressKey = `${result.contentType}:${result.itemId}`;
+      if (!(progressKey in userProgressDict)) {
+        userProgressDict[progressKey] = {
           userId,
-          grammarId: result.grammarId,
+          itemId: result.itemId,
+          contentType: result.contentType,
           sm2Data: { easeFactor: 2.5, interval: 0, repetitions: 0 },
           timesStudied: 0,
           timesCorrect: 0,
@@ -99,7 +102,8 @@ studyRouter.put('/sessions/:id/complete', async (req: Request<{ id: string }>, r
     }
 
     const sessionResults: SessionResult[] = results.map(r => ({
-      grammarId: r.grammarId,
+      itemId: r.itemId,
+      contentType: r.contentType,
       questionsAsked: r.questionsAsked,
       correctAnswers: r.correctAnswers,
       score: r.score,

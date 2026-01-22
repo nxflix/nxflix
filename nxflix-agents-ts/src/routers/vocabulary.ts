@@ -117,7 +117,7 @@ vocabularyRouter.post('/generate', async (req: Request, res: Response) => {
 
     const prompt = buildVocabularyGenerationPrompt(request);
 
-    const generatedVocabulary = await llm.completeJson<{ vocabulary: VocabularyItemType[] }>(
+    const generatedVocabulary = await llm.completeJson(
       [{ role: 'user', content: prompt }],
       z.object({
         vocabulary: z.array(VocabularyItem),

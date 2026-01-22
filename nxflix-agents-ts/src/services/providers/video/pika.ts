@@ -55,7 +55,10 @@ export class PikaVideoProvider implements IVideoProvider {
       throw new Error(`Pika error: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      job_id?: string;
+      video_url?: string;
+    };
 
     // Pika uses async generation - poll for completion
     if (data.job_id) {
@@ -63,7 +66,7 @@ export class PikaVideoProvider implements IVideoProvider {
     }
 
     return {
-      videoUrl: data.video_url,
+      videoUrl: data.video_url ?? '',
       durationSeconds: project.script.totalDurationSeconds,
     };
   }
@@ -118,11 +121,17 @@ export class PikaVideoProvider implements IVideoProvider {
         continue;
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        status?: string;
+        video_url?: string;
+        thumbnail_url?: string;
+        duration?: number;
+        error?: string;
+      };
 
       if (data.status === 'completed') {
         return {
-          videoUrl: data.video_url,
+          videoUrl: data.video_url ?? '',
           thumbnailUrl: data.thumbnail_url,
           durationSeconds: data.duration || 4,
         };

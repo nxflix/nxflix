@@ -8,7 +8,6 @@ import {
   getUserProgressList,
   getUserProgress,
   updateUserProgress,
-  makeProgressKey,
   startFocusSession,
   completeFocusSession,
   getFocusHistory,
@@ -150,7 +149,7 @@ Respond with JSON:
         content: {
           main: fallbackGrammar.pattern,
           sub: fallbackGrammar.meaning,
-          detail: fallbackGrammar.meaningJp,
+          detail: fallbackGrammar.meaningJp ?? undefined,
           example: fallbackGrammar.example,
         },
         reason: 'Selected for your daily study.',
@@ -182,7 +181,7 @@ Respond with JSON:
       content: {
         main: grammar.pattern,
         sub: grammar.meaning,
-        detail: grammar.meaningJp,
+        detail: grammar.meaningJp ?? undefined,
         example: grammar.example,
       },
       reason: selection.reason,
@@ -225,7 +224,7 @@ Respond with JSON:
         content: {
           main: fallbackGrammar.pattern,
           sub: fallbackGrammar.meaning,
-          detail: fallbackGrammar.meaningJp,
+          detail: fallbackGrammar.meaningJp ?? undefined,
           example: fallbackGrammar.example,
         },
         reason: 'Selected for your daily study.',
