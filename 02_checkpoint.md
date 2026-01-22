@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**NXFlix** is an AI-powered Japanese language learning platform for JLPT preparation. Since Checkpoint 1, we've added comprehensive content creation tools including text-to-speech, talking head video generation, and a video studio for creating educational content.
+**NXFlix** is an AI-powered Japanese language learning platform for JLPT preparation. Since Checkpoint 1, we've added comprehensive content creation tools including text-to-speech, talking head video generation, AI video generation with Runway ML, Hollywood-style script generation, a creator rewards system, and blockchain-based subscriptions.
 
 **Repository:** nxflix/nxflix
 
@@ -26,14 +26,8 @@ A unified TTS service supporting multiple providers for generating natural Japan
 ```typescript
 // services/tts.ts
 class TTSService {
-  async synthesize(text: string, options: TTSOptions): Promise<TTSResult> {
-    // Route to selected provider
-    // Return audio as base64 or URL
-  }
-
-  async getVoices(provider: string): Promise<Voice[]> {
-    // List available voices for provider
-  }
+  async synthesize(text: string, options: TTSOptions): Promise<TTSResult>
+  async getVoices(provider: string): Promise<Voice[]>
 }
 ```
 
@@ -82,23 +76,128 @@ class DIDService {
 }
 ```
 
-#### API Endpoints
-```
-POST /api/animation/generate       # Start talking head generation
-GET  /api/animation/status/:jobId  # Check generation status
-POST /api/animation/wait/:jobId    # Poll until complete
-GET  /api/animation/voices         # List available voices
-GET  /api/animation/credits        # Check remaining credits
-GET  /api/animation/config         # Get provider configuration
-```
-
 #### Key Files
 - `nxflix-agents-ts/src/services/did.ts`
 - `nxflix-agents-ts/src/routers/animation.ts`
 
 ---
 
-### 3. Video Studio
+### 3. Runway ML AI Video Integration
+
+Full integration with Runway ML's Gen-3 Alpha model for AI video generation.
+
+#### Features
+- **Text-to-Video:** Generate videos from text prompts
+- **Image-to-Video:** Animate static images with motion
+- **Configurable Duration:** 5 or 10 second clips
+- **Aspect Ratios:** 16:9, 9:16, 1:1
+- **Async Processing:** Job-based generation with polling
+
+#### Runway Service Implementation
+```typescript
+// services/runway.ts
+class RunwayService {
+  async generateFromText(options: {
+    prompt: string
+    duration?: 5 | 10
+    ratio?: '16:9' | '9:16' | '1:1'
+    waitForCompletion?: boolean
+  }): Promise<GenerateVideoResult>
+
+  async generateFromImage(options: {
+    prompt: string
+    image: string
+    imageIsUrl?: boolean
+    duration?: 5 | 10
+    ratio?: '16:9' | '9:16' | '1:1'
+  }): Promise<GenerateVideoResult>
+
+  async getTask(taskId: string): Promise<GetTaskResponse>
+  async waitForCompletion(taskId: string): Promise<GenerateVideoResult>
+}
+```
+
+#### API Configuration
+- **Base URL:** `https://api.runwayml.com/v1`
+- **Auth:** Bearer token
+- **API Version:** `2024-11-06`
+- **Model:** `gen3a_turbo`
+
+#### Key Files
+- `nxflix-agents-ts/src/services/runway.ts`
+- `nxflix-agents-ts/src/routers/animation.ts`
+
+---
+
+### 4. Hollywood Script Generator
+
+AI-powered screenplay generation for creating educational video scripts.
+
+#### Features
+- **Scene Generation:** Multiple scenes with settings, actions, dialogue
+- **Character Development:** Named characters with descriptions
+- **Dialogue Lines:** Natural Japanese with speaker attribution
+- **Camera Directions:** Visual storytelling guidance
+- **Genre Support:** Various video genres (educational, conversation, etc.)
+
+#### Script Structure
+```typescript
+HollywoodScript {
+  title: string
+  genre: string
+  targetDuration: number
+  scenes: Scene[]
+  characters: Character[]
+}
+
+Scene {
+  sceneNumber: number
+  setting: string
+  timeOfDay: string
+  description: string
+  dialogue: DialogueLine[]
+  actions: string[]
+  cameraDirections: string[]
+}
+
+DialogueLine {
+  characterId: string
+  characterName: string
+  line: string
+  emotion?: string
+  direction?: string
+}
+```
+
+#### Script Generator Service
+```typescript
+// services/script-generator.ts
+class ScriptGeneratorService {
+  async generateScript(options: {
+    grammar?: GrammarPoint[]
+    vocabulary?: VocabItem[]
+    kanji?: KanjiItem[]
+    genre: string
+    context?: string
+    targetDuration?: number
+  }): Promise<HollywoodScript>
+
+  extractDialogueText(script: HollywoodScript, characterId?: string): string
+}
+```
+
+#### LLM Integration
+- **Primary:** Anthropic Claude (claude-3-5-sonnet)
+- **Fallback:** OpenAI GPT-4
+- **Auto-fallback:** If Claude fails, automatically tries OpenAI
+
+#### Key Files
+- `nxflix-agents-ts/src/services/script-generator.ts`
+- `nxflix-agents-ts/src/routers/animation.ts`
+
+---
+
+### 5. Video Studio
 
 A complete video project management system for creating educational content.
 
@@ -114,11 +213,9 @@ VideoProject {
   voice: string
   status: 'draft' | 'generating' | 'ready' | 'failed'
   audioUrl?: string
-  audioBase64?: string
   videoUrl?: string
   thumbnailUrl?: string
   progress: number
-  errorMessage?: string
 }
 ```
 
@@ -142,28 +239,6 @@ VideoProject {
 | `abstract` | Minimalist/gradient backgrounds |
 | `manga` | Comic panel style |
 
-#### Video Script with Furigana
-```typescript
-VideoScript {
-  id: string
-  title: string
-  subtitles: VideoSubtitle[]
-  totalDurationSeconds: number
-  targetVocabulary: string[]
-  grammarPoints: string[]
-}
-
-VideoSubtitle {
-  id: string
-  startTime: number
-  endTime: number
-  text: string           // Japanese text
-  reading?: string       // Full reading
-  furigana: Furigana[]   // Ruby annotations
-  translation?: string   // English translation
-}
-```
-
 #### Key Files
 - `nxflix-agents-ts/src/models/video.ts`
 - `nxflix-agents-ts/src/agents/video-creator.ts`
@@ -172,134 +247,270 @@ VideoSubtitle {
 
 ---
 
-### 4. Animation Lab
+### 6. Animation Lab
 
-An experimental UI for testing video generation features.
+An experimental UI for testing video generation with full Hollywood script support.
 
 #### Features
-- **Provider Selection:** Choose between D-ID and future providers
+- **Provider Selection:** Choose between D-ID and Runway ML
 - **Image Upload:** Drag-and-drop or URL input
 - **Text Input:** Enter speech text with character count
 - **Voice Selection:** Browse and preview available voices
-- **TTS Provider Selection:** Choose audio generation provider
+- **Hollywood Script Panel:** Full screenplay preview with scenes
+- **Script-to-Video Workflow:** Use dialogue as video prompts
+- **AI Video as Default:** AI Video Gen tab selected by default
 - **Real-time Status:** Monitor generation progress
 - **Video Preview:** Watch generated videos in-browser
 
-#### UI Components
-- Provider configuration display
-- Image preview with base64 handling
-- Voice selector with filtering
-- Generation progress indicator
-- Video player with download option
+#### Script Integration
+- Generate Hollywood scripts from study content
+- View scenes with characters, dialogue, and actions
+- Click dialogue lines to use as speech text
+- "Use for AI Video" buttons on scenes
 
 #### Key Files
 - `frontend/client/src/pages/animation-lab.tsx`
+- `frontend/client/src/lib/api.ts`
 
 ---
 
-### 5. Video Creator Agent
+### 7. Creator Rewards System (Database)
 
-AI agent that orchestrates the complete video creation pipeline.
+Complete database schema for tracking creator engagement and rewards.
 
-#### Pipeline Steps
-```
-1. Script Generation
-   └─ LLM generates timed subtitles with furigana
+#### Epoch System
+Time-based periods for reward calculation:
+| Type | Duration | Purpose |
+|------|----------|---------|
+| Daily | 24 hours | User engagement rewards |
+| Weekly | 7 days | Primary creator rewards |
+| Monthly | Calendar month | Leaderboards/milestones |
 
-2. Audio Generation
-   └─ TTS service creates voiceover
+#### Event Tracking
+| Event Type | Weight | Description |
+|------------|--------|-------------|
+| `view` | 1x | Content displayed |
+| `study` | 3x | Active study session |
+| `complete` | 5x | Finished all questions |
+| `save` | 2x | Added to library |
+| `share` | 4x | Shared externally |
 
-3. Video Composition
-   └─ Combine audio + visuals + subtitles
-```
+#### Reward Tiers
+| Tier | Points/Week | Benefits |
+|------|-------------|----------|
+| Bronze | 10-50 | Badge + featured consideration |
+| Silver | 51-200 | Badge + 1 week featured |
+| Gold | 201-500 | Badge + 2 weeks featured |
+| Platinum | 501+ | All above + token consideration |
 
-#### Agent Implementation
-```typescript
-// agents/video-creator.ts
-class VideoCreatorAgent {
-  async createVideo(request: VideoCreateRequest): Promise<VideoProject> {
-    // Step 1: Generate script from prompt
-    const script = await this.generateScript(request.prompt)
-
-    // Step 2: Generate audio from script
-    const audio = await this.generateAudio(script, request.voice)
-
-    // Step 3: Compose final video
-    const video = await this.renderVideo(project)
-
-    return project
-  }
-}
-```
-
----
-
-### 6. Hedra Integration (Alternative Provider)
-
-Backup talking head provider with different capabilities.
-
-#### Features
-- Character generation from image
-- Audio-driven lip sync
-- Alternative visual styles
-
-#### Key Files
-- `nxflix-agents-ts/src/services/hedra.ts`
-
----
-
-## New Database Schema
-
-### Video Projects Table
+#### New Database Tables
 ```sql
-CREATE TABLE video_projects (
+-- Epoch periods
+CREATE TABLE epochs (
+  id VARCHAR(100) PRIMARY KEY,
+  epoch_type VARCHAR(20) NOT NULL,
+  start_date TIMESTAMP NOT NULL,
+  end_date TIMESTAMP NOT NULL,
+  status VARCHAR(20) DEFAULT 'active'
+);
+
+-- Content events (analytics)
+CREATE TABLE content_events (
+  id VARCHAR(100) PRIMARY KEY,
+  content_id VARCHAR(100) NOT NULL,
+  content_type VARCHAR(20) NOT NULL,
+  user_id VARCHAR(100),
+  event_type VARCHAR(30) NOT NULL,
+  event_data JSONB
+);
+
+-- Aggregated stats per epoch
+CREATE TABLE content_epoch_stats (
+  id VARCHAR(100) PRIMARY KEY,
+  epoch_id VARCHAR(100) NOT NULL,
+  content_id VARCHAR(100) NOT NULL,
+  view_count INTEGER DEFAULT 0,
+  study_count INTEGER DEFAULT 0,
+  completion_count INTEGER DEFAULT 0,
+  unique_users INTEGER DEFAULT 0
+);
+
+-- Creator points ledger
+CREATE TABLE creator_points (
+  id VARCHAR(100) PRIMARY KEY,
+  creator_id VARCHAR(100) NOT NULL,
+  epoch_id VARCHAR(100) NOT NULL,
+  points_earned INTEGER DEFAULT 0,
+  tier VARCHAR(20)
+);
+
+-- Pending rewards
+CREATE TABLE creator_rewards (
+  id VARCHAR(100) PRIMARY KEY,
+  creator_id VARCHAR(100) NOT NULL,
+  epoch_id VARCHAR(100) NOT NULL,
+  points_earned INTEGER NOT NULL,
+  tier VARCHAR(20),
+  reward_type VARCHAR(50),
+  status VARCHAR(20) DEFAULT 'pending',
+  token_amount REAL
+);
+
+-- Daily user rewards
+CREATE TABLE daily_rewards (
   id VARCHAR(100) PRIMARY KEY,
   user_id VARCHAR(100) NOT NULL,
-  prompt TEXT NOT NULL,
-  script JSONB,
-  character_style VARCHAR(50),
-  video_style VARCHAR(50),
-  voice VARCHAR(100),
-  status VARCHAR(20) DEFAULT 'draft',
-  audio_url TEXT,
-  audio_base64 TEXT,
-  video_url TEXT,
-  thumbnail_url TEXT,
-  error_message TEXT,
-  progress INTEGER DEFAULT 0,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  reward_date TIMESTAMP NOT NULL,
+  reward_rarity VARCHAR(20) NOT NULL,
+  reward_type VARCHAR(50) NOT NULL,
+  claimed BOOLEAN DEFAULT FALSE
+);
+
+-- Featured content
+CREATE TABLE featured_content (
+  id VARCHAR(100) PRIMARY KEY,
+  content_id VARCHAR(100) NOT NULL,
+  content_type VARCHAR(20) NOT NULL,
+  feature_date TIMESTAMP NOT NULL,
+  feature_reason TEXT,
+  impressions INTEGER DEFAULT 0,
+  clicks INTEGER DEFAULT 0
 );
 ```
 
+#### Content Sharing Fields
+All content tables now include:
+```sql
+is_public BOOLEAN DEFAULT FALSE,
+created_by VARCHAR(100)
+```
+
+#### Key Files
+- `nxflix-agents-ts/src/db/schema.ts`
+- `nxflix-agents-ts/src/services/analytics.ts`
+- `nxflix-agents-ts/src/services/epoch.ts`
+- `nxflix-agents-ts/src/services/rewards.ts`
+
 ---
 
-## New API Endpoints
+### 8. Blockchain Subscription System
+
+Smart contract for managing time-based subscriptions with crypto payments.
+
+#### Subscription Contract Features
+- **Plan Types:** Monthly, Quarterly, Yearly
+- **Payment:** ETH (native token)
+- **Auto-renewal:** Optional automatic renewal
+- **Grace Period:** Configurable expiration buffer
+- **Platform Fee:** 2% fee collection
+- **Treasury:** Configurable withdrawal address
+
+#### Contract Interface
+```solidity
+// contracts/src/Subscription.sol
+contract Subscription {
+  struct Plan {
+    uint256 price;
+    uint256 duration;
+    bool active;
+  }
+
+  struct Subscription {
+    uint256 planIndex;
+    uint256 startTime;
+    uint256 endTime;
+    bool autoRenew;
+  }
+
+  function subscribe(uint256 planIndex) external payable;
+  function renew() external payable;
+  function cancel() external;
+  function isActive(address user) external view returns (bool);
+}
+```
+
+#### Deployment Status
+| Network | Status |
+|---------|--------|
+| Ethereum Mainnet | Deployed |
+| Base | Deployed |
+| Sepolia Testnet | Deployed |
+| Base Sepolia | Deployed |
+
+#### SideShift Integration
+Token conversion service for accepting various cryptocurrencies:
+- Convert any supported token to ETH
+- Seamless payment flow
+- Real-time exchange rates
+
+#### Key Files
+- `contracts/src/Subscription.sol`
+- `contracts/src/interfaces/ISubscription.sol`
+- `nxflix-agents-ts/src/services/subscription.ts`
+- `nxflix-agents-ts/src/services/sideshift.ts`
+- `frontend/client/src/pages/subscription.tsx`
+
+---
+
+### 9. Creator Dashboard & Pages
+
+Full creator experience with content management and analytics.
+
+#### Creator Page Features
+- Create new content (grammar, vocabulary, kanji, reading, listening)
+- AI-assisted content generation
+- Publish/unpublish controls
+- Edit existing content
+
+#### Creator Dashboard Features
+- Content performance overview
+- View counts and study metrics
+- Recent activity feed
+- Points and tier display
+
+#### Key Files
+- `frontend/client/src/pages/creator.tsx`
+- `frontend/client/src/pages/creator-dashboard.tsx`
+
+---
+
+## API Endpoints Summary
 
 ### TTS Endpoints
 ```
-POST /api/tts/synthesize    # Generate audio from text
-GET  /api/tts/voices        # List available voices
+POST /api/tts/synthesize         # Generate audio from text
+GET  /api/tts/voices             # List available voices
 ```
 
 ### Animation Endpoints
 ```
-GET  /api/animation/config           # Provider configuration
-GET  /api/animation/voices           # Available voices
-GET  /api/animation/credits          # Check credits
-POST /api/animation/generate         # Generate talking head
-GET  /api/animation/status/:jobId    # Check status
-POST /api/animation/wait/:jobId      # Wait for completion
+GET  /api/animation/config       # All provider configurations
+GET  /api/animation/voices       # Available voices
+GET  /api/animation/credits      # Check credits
+
+# Talking Head (D-ID)
+POST /api/animation/generate           # Generate talking head
+GET  /api/animation/status/:jobId      # Check status
+POST /api/animation/wait/:jobId        # Wait for completion
+
+# AI Video (Runway ML)
+POST /api/animation/ai-video/generate        # Generate AI video
+GET  /api/animation/ai-video/status/:jobId   # Check status
+POST /api/animation/ai-video/wait/:jobId     # Wait for completion
+
+# Script Generation
+POST /api/animation/script/generate          # Generate Hollywood script
+POST /api/animation/script/extract-dialogue  # Extract dialogue
 ```
 
 ### Video Studio Endpoints
 ```
-GET  /api/video                # List user's projects
-GET  /api/video/:id            # Get project details
-POST /api/video/create         # Create new project
-GET  /api/video/:id/status     # Check generation status
-GET  /api/video/styles         # Available styles
-GET  /api/video/voices         # Available voices
+GET  /api/video                  # List user's projects
+GET  /api/video/:id              # Get project details
+POST /api/video/create           # Create new project
+GET  /api/video/:id/status       # Check generation status
+GET  /api/video/styles           # Available styles
+GET  /api/video/voices           # Available voices
 ```
 
 ---
@@ -310,37 +521,45 @@ GET  /api/video/voices         # Available voices
 |------|------|-------------|
 | Video Studio | `/video-studio` | Create and manage video projects |
 | Animation Lab | `/animation-lab` | Experiment with video generation |
+| Creator | `/creator` | Create and publish content |
 | Creator Dashboard | `/creator-dashboard` | Overview of created content |
+| Subscription | `/subscription` | Manage subscription |
 
 ---
 
-## Technology Additions
+## Frontend API Hooks
 
-### New Dependencies (Backend)
-```json
-{
-  "@elevenlabs/elevenlabs-js": "^2.32.0",
-  "axios": "^1.13.2"
-}
+```typescript
+// lib/api.ts
+
+// TTS
+useTTSVoices(provider)
+useSynthesizeSpeech()
+
+// Animation
+useAnimationConfig()
+useGenerateTalkingVideo()
+useTalkingVideoStatus(jobId)
+
+// AI Video
+useGenerateAIVideo()
+useAIVideoStatus(jobId)
+useWaitForAIVideo()
+
+// Script Generation
+useGenerateAnimationScript()
 ```
 
-### External APIs Integrated
-| Service | Purpose | Status |
-|---------|---------|--------|
-| D-ID | Talking head videos | Active |
-| ElevenLabs | Premium TTS | Active |
-| Microsoft Azure | Neural TTS | Active |
-| Google Cloud | TTS | Active |
-| Amazon Polly | TTS | Active |
-| Hedra | Backup video | Configured |
-
 ---
 
-## Environment Variables Added
+## Environment Variables
 
 ```bash
 # D-ID
 DID_API_KEY=your_did_api_key
+
+# Runway ML
+RUNWAY_API_KEY=your_runway_api_key
 
 # ElevenLabs
 ELEVENLABS_API_KEY=your_elevenlabs_key
@@ -356,6 +575,13 @@ GOOGLE_TTS_KEY=your_google_key
 AMAZON_POLLY_ACCESS_KEY=your_access_key
 AMAZON_POLLY_SECRET_KEY=your_secret_key
 
+# Script Generation
+ANTHROPIC_API_KEY=sk-ant-...  # Primary
+OPENAI_API_KEY=sk-...         # Fallback
+
+# SideShift
+SIDESHIFT_AFFILIATE_ID=your_affiliate_id
+
 # Hedra (Optional)
 HEDRA_API_KEY=your_hedra_key
 ```
@@ -365,50 +591,120 @@ HEDRA_API_KEY=your_hedra_key
 ## Development Progress
 
 ### Completed Features
-- [x] Multi-provider TTS service
+- [x] Multi-provider TTS service (4 providers)
 - [x] ElevenLabs integration
 - [x] Microsoft Azure TTS integration
 - [x] Google Cloud TTS integration
 - [x] Amazon Polly integration
 - [x] D-ID talking head integration
+- [x] Runway ML AI video integration
+- [x] Text-to-video generation
+- [x] Image-to-video generation
+- [x] Hollywood script generator
+- [x] Scene and dialogue extraction
+- [x] Script-to-video workflow
 - [x] Video project model and schema
 - [x] Video creator agent
 - [x] Video studio page
-- [x] Animation lab page
+- [x] Animation lab page (with AI video default)
 - [x] Voice selection UI
 - [x] Character style selection
 - [x] Video style selection
 - [x] Generation progress tracking
 - [x] Video preview and download
 - [x] Hedra backup integration
+- [x] Epochs database schema
+- [x] Content events tracking schema
+- [x] Creator points schema
+- [x] Creator rewards schema
+- [x] Daily rewards schema
+- [x] Featured content schema
+- [x] Content sharing fields (isPublic, createdBy)
+- [x] Subscription smart contract
+- [x] Multi-chain deployment
+- [x] SideShift integration
+- [x] Creator page
+- [x] Creator dashboard
 
 ### In Progress
+- [ ] Analytics service implementation
+- [ ] Epoch rollover cron job
+- [ ] Rewards calculation service
+- [ ] Featured content algorithm
+- [ ] Admin rewards panel
 - [ ] FFmpeg video composition
 - [ ] Subtitle rendering with furigana
-- [ ] AI video generation (Runway ML)
+
+---
+
+## Git Commit History (Recent)
+
+```
+cab549c - add hollywood scripts
+847bf42 - use official elevenlabs sdk
+87837d8 - rewards system
+76fcd85 - add storage or persistence of generated content
+ae4b26d - audio generation
+```
 
 ---
 
 ## Key Metrics
 
-| Metric | Value |
-|--------|-------|
-| TTS Providers | 4 |
-| Video Providers | 2 |
-| Character Styles | 7 |
-| Video Styles | 5 |
-| New API Endpoints | 12 |
+| Metric | Checkpoint 1 | Checkpoint 2 |
+|--------|-------------|--------------|
+| Content Types | 5 | 5 |
+| TTS Providers | 0 | 4 |
+| Video Providers | 0 | 3 |
+| Database Tables | 7 | 15 |
+| API Endpoints | 25 | 40+ |
+| Smart Contracts | 0 | 1 |
+| Networks Deployed | 0 | 4 |
+| Character Styles | 0 | 7 |
+| Video Styles | 0 | 5 |
 
 ---
 
-## Next Steps
+## Technical Highlights
 
-- Runway ML integration for AI video generation
-- Hollywood script generator for educational content
-- FFmpeg-based video composition
-- Creator rewards system
-- Blockchain subscription integration
+### Multi-Provider Architecture
+- Factory pattern for TTS provider selection
+- Unified response format across providers
+- Graceful fallback handling
+
+### Runway ML Integration
+- Bearer token authentication
+- Version header: `X-Runway-Version: 2024-11-06`
+- Job-based async processing
+- Automatic status polling
+
+### Script Generator Fallback
+- Primary: Claude 3.5 Sonnet
+- Catches Anthropic errors gracefully
+- Falls back to OpenAI GPT-4
+- Unified response format
+
+### Creator Rewards Architecture
+- Event-driven analytics
+- Epoch-based aggregation
+- Tier progression system
+- Manual approval workflow
 
 ---
 
-*NXFlix - Checkpoint 2: Content Creation Tools*
+## Next Steps (Checkpoint 3)
+
+- Complete analytics service implementation
+- Build epoch rollover cron job
+- Implement rewards calculation
+- Create admin rewards panel
+- Add daily engagement rewards UI (mystery box)
+- Deploy JLPT token contract
+- Integrate token payments
+- FFmpeg-based video rendering
+- Mobile-responsive improvements
+
+---
+
+*NXFlix - Checkpoint 2: Content Creation & Creator Economy*
+*Last Updated: January 2025*
