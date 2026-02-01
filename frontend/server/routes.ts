@@ -489,5 +489,460 @@ export async function registerRoutes(
     res.status((result as any).status || 200).json(result);
   });
 
+  // ============================================================================
+  // Pods Routes (direct database access)
+  // ============================================================================
+
+  const { db, pods, podMembers, checkIns, userProfiles, users, weeklyReviews, podInvites } = await import("./db");
+  const { eq, and, desc, gte, sql } = await import("drizzle-orm");
+
+  // Create a new pod
+  app.post("/api/pods", async (req: Request, res: Response) => {
+    try {
+      const { name, description, jlptLevel, targetExam, dailyCommitment, maxMembers, joinType, leaderId, rules } = req.body;
+
+      if (!name || !jlptLevel || !targetExam || !dailyCommitment || !leaderId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Create the pod
+      const [newPod] = await db.insert(pods).values({
+        name,
+        description,
+        jlptLevel,
+        targetExam: new Date(targetExam),
+        dailyCommitment,
+        maxMembers: maxMembers || 8,
+        joinType: joinType || "request",
+        leaderId,
+        rules: rules || {
+          requireDailyCheckIn: true,
+          requireProof: false,
+          minStudyMinutes: 0,
+          autoRemoveInactiveDays: null,
+          weeklyReviewDay: 0,
+        },
+      }).returning();
+
+      // Add the leader as a member
+      await db.insert(podMembers).values({
+        podId: newPod.id,
+        userId: leaderId,
+        role: "leader",
+        status: "active",
+      });
+
+      res.status(201).json(newPod);
+    } catch (error) {
+      console.error("Error creating pod:", error);
+      res.status(500).json({ error: "Failed to create pod" });
+    }
+  });
+
+  // List all pods (with optional filters)
+  app.get("/api/pods", async (req: Request, res: Response) => {
+    try {
+      const { jlptLevel, hasSpace } = req.query;
+
+      let query = db.select().from(pods);
+
+      const allPods = await query.orderBy(desc(pods.createdAt));
+
+      // Filter in JS for now (could optimize with SQL later)
+      let filtered = allPods;
+      if (jlptLevel) {
+        filtered = filtered.filter(p => p.jlptLevel === jlptLevel);
+      }
+      if (hasSpace === "true") {
+        filtered = filtered.filter(p => p.memberCount < p.maxMembers);
+      }
+
+      res.json(filtered);
+    } catch (error) {
+      console.error("Error listing pods:", error);
+      res.status(500).json({ error: "Failed to list pods" });
+    }
+  });
+
+  // Get a single pod by ID
+  app.get("/api/pods/:id", async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+
+      const [pod] = await db.select().from(pods).where(eq(pods.id, id));
+
+      if (!pod) {
+        return res.status(404).json({ error: "Pod not found" });
+      }
+
+      // Get members with user info
+      const members = await db
+        .select({
+          id: podMembers.id,
+          userId: podMembers.userId,
+          role: podMembers.role,
+          status: podMembers.status,
+          currentStreak: podMembers.currentStreak,
+          longestStreak: podMembers.longestStreak,
+          totalCheckIns: podMembers.totalCheckIns,
+          totalStudyMinutes: podMembers.totalStudyMinutes,
+          joinedAt: podMembers.joinedAt,
+          lastCheckInDate: podMembers.lastCheckInDate,
+          username: users.username,
+        })
+        .from(podMembers)
+        .leftJoin(users, eq(podMembers.userId, users.id))
+        .where(eq(podMembers.podId, id));
+
+      res.json({ ...pod, members });
+    } catch (error) {
+      console.error("Error getting pod:", error);
+      res.status(500).json({ error: "Failed to get pod" });
+    }
+  });
+
+  // Get pod members
+  app.get("/api/pods/:id/members", async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+
+      const members = await db
+        .select({
+          id: podMembers.id,
+          userId: podMembers.userId,
+          role: podMembers.role,
+          status: podMembers.status,
+          currentStreak: podMembers.currentStreak,
+          longestStreak: podMembers.longestStreak,
+          totalCheckIns: podMembers.totalCheckIns,
+          totalStudyMinutes: podMembers.totalStudyMinutes,
+          joinedAt: podMembers.joinedAt,
+          lastCheckInDate: podMembers.lastCheckInDate,
+          username: users.username,
+        })
+        .from(podMembers)
+        .leftJoin(users, eq(podMembers.userId, users.id))
+        .where(eq(podMembers.podId, id));
+
+      res.json(members);
+    } catch (error) {
+      console.error("Error getting pod members:", error);
+      res.status(500).json({ error: "Failed to get pod members" });
+    }
+  });
+
+  // Join a pod
+  app.post("/api/pods/:id/join", async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { userId, introMessage } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      // Check if pod exists and has space
+      const [pod] = await db.select().from(pods).where(eq(pods.id, id));
+      if (!pod) {
+        return res.status(404).json({ error: "Pod not found" });
+      }
+      if (pod.memberCount >= pod.maxMembers) {
+        return res.status(400).json({ error: "Pod is full" });
+      }
+
+      // Check if user is already a member
+      const [existingMember] = await db
+        .select()
+        .from(podMembers)
+        .where(and(eq(podMembers.podId, id), eq(podMembers.userId, userId)));
+
+      if (existingMember) {
+        return res.status(400).json({ error: "User is already a member of this pod" });
+      }
+
+      // Determine status based on join type
+      const status = pod.joinType === "open" ? "active" : "pending";
+
+      // Add member
+      const [newMember] = await db.insert(podMembers).values({
+        podId: id,
+        userId,
+        role: "member",
+        status,
+        introMessage,
+      }).returning();
+
+      // Update member count if active
+      if (status === "active") {
+        await db
+          .update(pods)
+          .set({ memberCount: pod.memberCount + 1 })
+          .where(eq(pods.id, id));
+      }
+
+      res.status(201).json(newMember);
+    } catch (error) {
+      console.error("Error joining pod:", error);
+      res.status(500).json({ error: "Failed to join pod" });
+    }
+  });
+
+  // Leave a pod
+  app.post("/api/pods/:id/leave", async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      // Check if user is a member
+      const [member] = await db
+        .select()
+        .from(podMembers)
+        .where(and(eq(podMembers.podId, id), eq(podMembers.userId, userId)));
+
+      if (!member) {
+        return res.status(404).json({ error: "User is not a member of this pod" });
+      }
+
+      // Can't leave if you're the leader
+      if (member.role === "leader") {
+        return res.status(400).json({ error: "Leaders cannot leave. Transfer leadership first." });
+      }
+
+      // Remove member
+      await db
+        .delete(podMembers)
+        .where(and(eq(podMembers.podId, id), eq(podMembers.userId, userId)));
+
+      // Update member count
+      const [pod] = await db.select().from(pods).where(eq(pods.id, id));
+      if (pod && member.status === "active") {
+        await db
+          .update(pods)
+          .set({ memberCount: Math.max(0, pod.memberCount - 1) })
+          .where(eq(pods.id, id));
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error leaving pod:", error);
+      res.status(500).json({ error: "Failed to leave pod" });
+    }
+  });
+
+  // Daily check-in
+  app.post("/api/pods/:id/check-in", async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { userId, studyMinutes, mood, studyTags, proofType, proofContent, reflection } = req.body;
+
+      if (!userId || !studyMinutes || !mood) {
+        return res.status(400).json({ error: "User ID, study minutes, and mood are required" });
+      }
+
+      // Check if user is an active member
+      const [member] = await db
+        .select()
+        .from(podMembers)
+        .where(and(eq(podMembers.podId, id), eq(podMembers.userId, userId), eq(podMembers.status, "active")));
+
+      if (!member) {
+        return res.status(404).json({ error: "User is not an active member of this pod" });
+      }
+
+      // Check if already checked in today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const [existingCheckIn] = await db
+        .select()
+        .from(checkIns)
+        .where(
+          and(
+            eq(checkIns.podId, id),
+            eq(checkIns.userId, userId),
+            gte(checkIns.date, today)
+          )
+        );
+
+      if (existingCheckIn) {
+        return res.status(400).json({ error: "Already checked in today" });
+      }
+
+      // Calculate streak
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      let newStreak = 1;
+      if (member.lastCheckInDate) {
+        const lastDate = new Date(member.lastCheckInDate);
+        lastDate.setHours(0, 0, 0, 0);
+        if (lastDate.getTime() === yesterday.getTime()) {
+          newStreak = member.currentStreak + 1;
+        }
+      }
+
+      // Create check-in
+      const [checkIn] = await db.insert(checkIns).values({
+        podId: id,
+        userId,
+        date: today,
+        studyMinutes,
+        mood,
+        studyTags: studyTags || [],
+        proofType,
+        proofContent,
+        reflection,
+        streakDay: newStreak,
+      }).returning();
+
+      // Update member stats
+      const newLongestStreak = Math.max(member.longestStreak, newStreak);
+      await db
+        .update(podMembers)
+        .set({
+          currentStreak: newStreak,
+          longestStreak: newLongestStreak,
+          totalCheckIns: member.totalCheckIns + 1,
+          totalStudyMinutes: member.totalStudyMinutes + studyMinutes,
+          lastCheckInDate: today,
+        })
+        .where(eq(podMembers.id, member.id));
+
+      res.status(201).json({
+        checkIn,
+        streak: newStreak,
+        longestStreak: newLongestStreak,
+      });
+    } catch (error) {
+      console.error("Error checking in:", error);
+      res.status(500).json({ error: "Failed to check in" });
+    }
+  });
+
+  // Get check-ins for a pod (today or date range)
+  app.get("/api/pods/:id/check-ins", async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { date, startDate, endDate } = req.query;
+
+      let query = db
+        .select({
+          id: checkIns.id,
+          userId: checkIns.userId,
+          date: checkIns.date,
+          studyMinutes: checkIns.studyMinutes,
+          mood: checkIns.mood,
+          studyTags: checkIns.studyTags,
+          reflection: checkIns.reflection,
+          streakDay: checkIns.streakDay,
+          createdAt: checkIns.createdAt,
+          username: users.username,
+        })
+        .from(checkIns)
+        .leftJoin(users, eq(checkIns.userId, users.id))
+        .where(eq(checkIns.podId, id))
+        .orderBy(desc(checkIns.createdAt));
+
+      const results = await query;
+
+      // Filter by date in JS (could optimize with SQL)
+      let filtered = results;
+      if (date) {
+        const targetDate = new Date(date as string);
+        targetDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(targetDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        filtered = results.filter(c => {
+          const checkInDate = new Date(c.date);
+          return checkInDate >= targetDate && checkInDate < nextDay;
+        });
+      }
+
+      res.json(filtered);
+    } catch (error) {
+      console.error("Error getting check-ins:", error);
+      res.status(500).json({ error: "Failed to get check-ins" });
+    }
+  });
+
+  // Get user's pods
+  app.get("/api/users/:userId/pods", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId as string;
+
+      const userPods = await db
+        .select({
+          pod: pods,
+          membership: podMembers,
+        })
+        .from(podMembers)
+        .innerJoin(pods, eq(podMembers.podId, pods.id))
+        .where(and(eq(podMembers.userId, userId), eq(podMembers.status, "active")));
+
+      res.json(userPods);
+    } catch (error) {
+      console.error("Error getting user pods:", error);
+      res.status(500).json({ error: "Failed to get user pods" });
+    }
+  });
+
+  // Approve a pending member (leader only)
+  app.post("/api/pods/:id/members/:memberId/approve", async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const memberId = req.params.memberId as string;
+      const { leaderId } = req.body;
+
+      // Verify requester is the leader
+      const [leader] = await db
+        .select()
+        .from(podMembers)
+        .where(and(eq(podMembers.podId, id), eq(podMembers.userId, leaderId), eq(podMembers.role, "leader")));
+
+      if (!leader) {
+        return res.status(403).json({ error: "Only the pod leader can approve members" });
+      }
+
+      // Get the pending member
+      const [member] = await db
+        .select()
+        .from(podMembers)
+        .where(and(eq(podMembers.id, memberId), eq(podMembers.status, "pending")));
+
+      if (!member) {
+        return res.status(404).json({ error: "Pending member not found" });
+      }
+
+      // Check pod capacity
+      const [pod] = await db.select().from(pods).where(eq(pods.id, id));
+      if (pod && pod.memberCount >= pod.maxMembers) {
+        return res.status(400).json({ error: "Pod is full" });
+      }
+
+      // Approve member
+      await db
+        .update(podMembers)
+        .set({ status: "active" })
+        .where(eq(podMembers.id, memberId));
+
+      // Update member count
+      if (pod) {
+        await db
+          .update(pods)
+          .set({ memberCount: pod.memberCount + 1 })
+          .where(eq(pods.id, id));
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error approving member:", error);
+      res.status(500).json({ error: "Failed to approve member" });
+    }
+  });
+
   return httpServer;
 }

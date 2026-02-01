@@ -544,3 +544,161 @@ export interface AdminStats {
     reason?: string;
   } | null;
 }
+
+// ============================================================================
+// Pod Types (Study Accountability Groups)
+// ============================================================================
+
+export type JLPTLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
+export type StudyCommitment = '30min' | '1hr' | '2hr+';
+export type PodJoinType = 'open' | 'request';
+export type PodMemberRole = 'leader' | 'member';
+export type PodMemberStatus = 'active' | 'pending' | 'inactive' | 'removed';
+export type MoodType = 'struggling' | 'okay' | 'great';
+export type StudyTag = 'grammar' | 'kanji' | 'vocab' | 'listening' | 'reading' | 'speaking';
+export type ProofType = 'screenshot' | 'link' | 'note';
+
+export interface PodRules {
+  minDailyMinutes: number;
+  allowedMissedDays: number;
+  requireProof: boolean;
+}
+
+export interface Pod {
+  id: string;
+  name: string;
+  description?: string | null;
+  jlptLevel: JLPTLevel;
+  targetExam: string; // ISO date string
+  dailyCommitment: StudyCommitment;
+  maxMembers: number;
+  joinType: PodJoinType;
+  leaderId: string;
+  rules?: PodRules | null;
+  memberCount: number;
+  averageStreak: number;
+  checkInRate: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface PodMember {
+  id: string;
+  podId: string;
+  userId: string;
+  role: PodMemberRole;
+  status: PodMemberStatus;
+  currentStreak: number;
+  longestStreak: number;
+  totalCheckIns: number;
+  totalStudyMinutes: number;
+  joinedAt?: string | null;
+  lastCheckInDate?: string | null;
+  introMessage?: string | null;
+  // Joined data
+  username?: string | null;
+}
+
+export interface CheckIn {
+  id: string;
+  podId: string;
+  userId: string;
+  date: string;
+  studyMinutes: number;
+  mood: MoodType;
+  studyTags: StudyTag[];
+  proofType?: ProofType | null;
+  proofContent?: string | null;
+  reflection?: string | null;
+  streakDay: number;
+  createdAt?: string | null;
+  // Joined data
+  username?: string | null;
+}
+
+export interface WeeklyReviewInsight {
+  type: 'pattern' | 'suggestion' | 'warning' | 'focus';
+  icon: string;
+  title: string;
+  body: string;
+  actionLabel?: string;
+  actionType?: string;
+}
+
+export interface WeeklyReview {
+  id: string;
+  podId: string;
+  userId: string;
+  weekStart: string;
+  weekEnd: string;
+  daysCheckedIn: number;
+  totalMinutes: number;
+  studyTagBreakdown?: Partial<Record<StudyTag, number>> | null;
+  moodBreakdown?: Partial<Record<MoodType, number>> | null;
+  goalDays: number;
+  goalMinutes: number;
+  aiInsights?: WeeklyReviewInsight[] | null;
+  createdAt?: string | null;
+}
+
+export interface PodInvite {
+  id: string;
+  podId: string;
+  invitedBy: string;
+  invitedEmail?: string | null;
+  code: string;
+  expiresAt: string;
+  used: boolean;
+  usedBy?: string | null;
+  usedAt?: string | null;
+  createdAt?: string | null;
+}
+
+// Pod API Request/Response types
+export interface CreatePodRequest {
+  name: string;
+  description?: string;
+  jlptLevel: JLPTLevel;
+  targetExam: string;
+  dailyCommitment: StudyCommitment;
+  maxMembers?: number;
+  joinType?: PodJoinType;
+  leaderId: string;
+  rules?: PodRules;
+}
+
+export interface ListPodsParams {
+  jlptLevel?: JLPTLevel;
+  commitment?: StudyCommitment;
+  hasSpace?: boolean;
+}
+
+export interface JoinPodRequest {
+  userId: string;
+  introMessage?: string;
+}
+
+export interface CheckInRequest {
+  userId: string;
+  studyMinutes: number;
+  mood: MoodType;
+  studyTags?: StudyTag[];
+  proofType?: ProofType;
+  proofContent?: string;
+  reflection?: string;
+}
+
+export interface CheckInResponse {
+  checkIn: CheckIn;
+  streak: number;
+  longestStreak: number;
+}
+
+export interface PodWithMembers extends Pod {
+  members: PodMember[];
+}
+
+export interface UserPodMembership {
+  pod: Pod;
+  membership: PodMember;
+}

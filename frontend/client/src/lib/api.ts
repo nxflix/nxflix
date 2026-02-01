@@ -1251,3 +1251,192 @@ export function useProcessEpochRewards() {
     },
   });
 }
+
+// ============================================================================
+// Pod Hooks (Study Accountability Groups)
+// ============================================================================
+
+import type {
+  Pod,
+  PodMember,
+  CheckIn,
+  PodWithMembers,
+  UserPodMembership,
+  CreatePodRequest,
+  ListPodsParams,
+  JoinPodRequest,
+  CheckInRequest,
+  CheckInResponse,
+} from './api-types';
+
+/**
+ * Fetch all pods with optional filtering
+ */
+export function usePods(params?: ListPodsParams) {
+  const searchParams = new URLSearchParams();
+  if (params?.jlptLevel) searchParams.set('jlptLevel', params.jlptLevel);
+  if (params?.commitment) searchParams.set('commitment', params.commitment);
+  if (params?.hasSpace !== undefined) searchParams.set('hasSpace', String(params.hasSpace));
+  const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
+
+  return useQuery<Pod[]>({
+    queryKey: ['/api/pods', params],
+    queryFn: async () => {
+      const res = await fetch(`/api/pods${queryString}`);
+      if (!res.ok) throw new Error('Failed to fetch pods');
+      return res.json();
+    },
+  });
+}
+
+/**
+ * Fetch a single pod with its members
+ */
+export function usePod(podId: string) {
+  return useQuery<PodWithMembers>({
+    queryKey: ['/api/pods', podId],
+    queryFn: async () => {
+      const res = await fetch(`/api/pods/${podId}`);
+      if (!res.ok) throw new Error('Failed to fetch pod');
+      return res.json();
+    },
+    enabled: !!podId,
+  });
+}
+
+/**
+ * Fetch pod members
+ */
+export function usePodMembers(podId: string) {
+  return useQuery<PodMember[]>({
+    queryKey: ['/api/pods', podId, 'members'],
+    queryFn: async () => {
+      const res = await fetch(`/api/pods/${podId}/members`);
+      if (!res.ok) throw new Error('Failed to fetch pod members');
+      return res.json();
+    },
+    enabled: !!podId,
+  });
+}
+
+/**
+ * Fetch pods that a user belongs to
+ */
+export function useUserPods(userId: string) {
+  return useQuery<UserPodMembership[]>({
+    queryKey: ['/api/users', userId, 'pods'],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/pods`);
+      if (!res.ok) throw new Error('Failed to fetch user pods');
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+}
+
+/**
+ * Create a new pod
+ */
+export function useCreatePod() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (request: CreatePodRequest) => {
+      const res = await apiRequest('POST', '/api/pods', request);
+      return res.json() as Promise<Pod>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pods'] });
+    },
+  });
+}
+
+/**
+ * Join a pod
+ */
+export function useJoinPod() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ podId, ...request }: JoinPodRequest & { podId: string }) => {
+      const res = await apiRequest('POST', `/api/pods/${podId}/join`, request);
+      return res.json() as Promise<PodMember>;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pods', variables.podId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users', variables.userId, 'pods'] });
+    },
+  });
+}
+
+/**
+ * Leave a pod
+ */
+export function useLeavePod() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ podId, userId }: { podId: string; userId: string }) => {
+      const res = await apiRequest('POST', `/api/pods/${podId}/leave`, { userId });
+      return res.json() as Promise<{ success: boolean }>;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pods', variables.podId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users', variables.userId, 'pods'] });
+    },
+  });
+}
+
+/**
+ * Submit a daily check-in
+ */
+export function useCheckIn() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ podId, ...request }: CheckInRequest & { podId: string }) => {
+      const res = await apiRequest('POST', `/api/pods/${podId}/check-in`, request);
+      return res.json() as Promise<CheckInResponse>;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pods', variables.podId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/pods', variables.podId, 'check-ins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/pods', variables.podId, 'members'] });
+    },
+  });
+}
+
+/**
+ * Fetch check-ins for a pod
+ */
+export function usePodCheckIns(podId: string, date?: string) {
+  const params = date ? `?date=${date}` : '';
+
+  return useQuery<CheckIn[]>({
+    queryKey: ['/api/pods', podId, 'check-ins', date],
+    queryFn: async () => {
+      const res = await fetch(`/api/pods/${podId}/check-ins${params}`);
+      if (!res.ok) throw new Error('Failed to fetch check-ins');
+      return res.json();
+    },
+    enabled: !!podId,
+  });
+}
+
+/**
+ * Approve a pending member (leader only)
+ */
+export function useApprovePodMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ podId, memberId, leaderId }: { podId: string; memberId: string; leaderId: string }) => {
+      const res = await apiRequest('POST', `/api/pods/${podId}/members/${memberId}/approve`, { leaderId });
+      return res.json() as Promise<PodMember>;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pods', variables.podId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/pods', variables.podId, 'members'] });
+    },
+  });
+}
