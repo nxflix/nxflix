@@ -25,6 +25,8 @@ import VideoStudio from "@/pages/video-studio";
 import AnimationLab from "@/pages/animation-lab";
 import CreatorDashboard from "@/pages/creator-dashboard";
 import AdminRewards from "@/pages/admin/rewards";
+import PodDashboard from "@/pages/pods";
+import PodOnboarding from "@/pages/pods/onboarding";
 
 function Router() {
   return (
@@ -46,6 +48,8 @@ function Router() {
       <Route path="/subscribe" component={Subscription} />
       <Route path="/creator-dashboard" component={CreatorDashboard} />
       <Route path="/admin/rewards" component={AdminRewards} />
+      <Route path="/pods" component={PodDashboard} />
+      <Route path="/pods/onboarding" component={PodOnboarding} />
       <Route component={NotFound} />
     </Switch>
   );
